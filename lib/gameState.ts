@@ -124,8 +124,6 @@ export class GameStateManager {
       return null;
     }
 
-    const dropX = this.state.previewCircle.position.x;
-
     const newCircle: Circle = {
       ...this.state.previewCircle,
       id: `fruit-${this.nextId++}`,
