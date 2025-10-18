@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pop Pop
+
+A fun merge puzzle game inspired by Suika Game, built with Next.js and Matter.js physics.
+
+## About
+
+Pop Pop is a physics-based merging game where you drop colored circles into a container. When two circles of the same level touch, they merge into a larger circle. The goal is to score as many points as possible by creating bigger and bigger circles without letting them overflow past the danger line.
+
+## Features
+
+- **Physics-Based Gameplay**: Realistic circle physics powered by Matter.js
+- **Progressive Merging**: 11 levels of circles to unlock by merging
+- **Power-Up System**: Earn bomb power-ups every 100 points to destroy circles
+- **Dark/Light Theme**: Built-in theme toggle for comfortable playing
+- **Responsive Design**: Works on both desktop and mobile devices
+- **Smooth Animations**: 60 FPS gameplay with optimized rendering
+
+## Tech Stack
+
+- **Framework**: Next.js 15.5.6 with App Router
+- **Physics Engine**: Matter.js for realistic 2D physics
+- **Styling**: Tailwind CSS with shadcn/ui components
+- **Theme Management**: next-themes for dark/light mode
+- **Language**: TypeScript
 
 ## Getting Started
 
-First, run the development server:
+First, install dependencies:
+
+```bash
+npm install
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to play the game.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Building for Production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## How to Play
 
-To learn more about Next.js, take a look at the following resources:
+1. Move your mouse (or finger on mobile) to position the preview circle
+2. Click (or tap) to drop the circle into the container
+3. Match circles of the same color/level to merge them
+4. Earn points with each merge - higher level merges give more points
+5. Earn a bomb power-up every 100 points to destroy a single circle
+6. Avoid letting circles stay above the danger line for too long or it's game over!
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+├── app/                  # Next.js app directory
+├── components/          # React components
+│   ├── SuikaGame.tsx   # Main game component
+│   └── ui/             # shadcn/ui components
+├── lib/                # Game logic and utilities
+│   ├── physics.ts      # Matter.js physics engine wrapper
+│   ├── gameState.ts    # Game state management
+│   ├── renderer.ts     # Canvas rendering
+│   ├── inputHandler.ts # Mouse/touch input handling
+│   └── gameConfig.ts   # Game constants and configuration
+└── assets/             # Game assets
+    └── sounds/         # Sound effects
+```
+
+## License
+
+MIT
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Check out the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
