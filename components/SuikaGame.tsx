@@ -26,12 +26,30 @@ export default function SuikaGame() {
   const rendererRef = useRef<Renderer | null>(null);
   const inputHandlerRef = useRef<InputHandler | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const mergeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioBufferRef = useRef<AudioBuffer | null>(null);
 
-  // Initialize audio
+  // Initialize Web Audio API for low-latency playback
   useEffect(() => {
-    mergeAudioRef.current = new Audio('/assets/sounds/merge.mp3');
-    mergeAudioRef.current.volume = 0.5;
+    // Create AudioContext with low latency hint
+    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const audioContext = new AudioContextClass({
+      latencyHint: 'interactive',
+    });
+    audioContextRef.current = audioContext;
+
+    // Fetch and decode audio file
+    fetch('/assets/sounds/pop.mp3')
+      .then(response => response.arrayBuffer())
+      .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+      .then(audioBuffer => {
+        audioBufferRef.current = audioBuffer;
+      })
+      .catch(err => console.error('Error loading audio:', err));
+
+    return () => {
+      audioContext.close();
+    };
   }, []);
 
   // Update renderer colors when palette changes
@@ -60,13 +78,17 @@ export default function SuikaGame() {
       physicsRef.current = new PhysicsEngine(width, height);
       gameStateRef.current = new GameStateManager(
         () => {
-          // Play merge sound - clone audio to allow overlapping sounds
-          if (mergeAudioRef.current) {
-            const sound = mergeAudioRef.current.cloneNode() as HTMLAudioElement;
-            sound.volume = 0.5;
-            sound.play().catch(() => {
-              // Ignore errors from autoplay restrictions
-            });
+          // Play merge sound with Web Audio API for low latency
+          if (audioContextRef.current && audioBufferRef.current) {
+            const source = audioContextRef.current.createBufferSource();
+            source.buffer = audioBufferRef.current;
+
+            const gainNode = audioContextRef.current.createGain();
+            gainNode.gain.value = 0.5;
+
+            source.connect(gainNode);
+            gainNode.connect(audioContextRef.current.destination);
+            source.start(0);
           }
         },
         width,
@@ -222,7 +244,7 @@ export default function SuikaGame() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[100dvh] p-4">
+    <div className="flex flex-col items-center justify-center h-dvh max-h-dvh p-4">
       {/* Game Container */}
       <div className="flex flex-col w-full max-w-md">
         {/* Header */}

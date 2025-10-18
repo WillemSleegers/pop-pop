@@ -191,6 +191,11 @@ export class GameStateManager {
             this.mergeQueue.push({ c1, c2 });
             c1.merged = true;
             c2.merged = true;
+
+            // Play sound immediately when merge is detected
+            if (this.onMergeCallback) {
+              this.onMergeCallback();
+            }
           }
         }
       }
@@ -227,11 +232,6 @@ export class GameStateManager {
     };
 
     this.state.circles.push(newCircle);
-
-    // Play merge sound
-    if (this.onMergeCallback) {
-      this.onMergeCallback();
-    }
 
     // Update score
     this.state.score += MERGE_POINTS[c1.level];
