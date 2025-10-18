@@ -2,17 +2,19 @@
 // Handles all drawing operations for the game
 
 import { Circle } from './physics';
-import { FRUIT_COLORS, DANGER_LINE_Y, DROP_ZONE_HEIGHT } from './gameConfig';
+import { DANGER_LINE_Y, DROP_ZONE_HEIGHT } from './gameConfig';
 
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private width: number;
   private height: number;
+  private colors: string[];
 
   constructor(
     canvas: HTMLCanvasElement,
     width: number,
-    height: number
+    height: number,
+    colors: string[]
   ) {
     const ctx = canvas.getContext('2d');
     if (!ctx) {
@@ -21,6 +23,7 @@ export class Renderer {
     this.ctx = ctx;
     this.width = width;
     this.height = height;
+    this.colors = colors;
 
     // Support high DPI displays (retina)
     const dpr = window.devicePixelRatio || 1;
@@ -29,6 +32,11 @@ export class Renderer {
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
     ctx.scale(dpr, dpr);
+  }
+
+  // Update color palette
+  setColors(colors: string[]): void {
+    this.colors = colors;
   }
 
   // Clear the canvas
@@ -43,17 +51,17 @@ export class Renderer {
   ): void {
     this.clear();
 
-    // Draw drop zone
-    this.drawDropZone();
+    // Draw drop zone underlay first (background layer)
+    this.drawDropZoneUnderlay();
 
-    // Draw all circles
+    // Draw all circles on top of underlay
     for (const circle of circles) {
       this.drawCircle(circle);
     }
 
     // Draw preview circle
     if (previewCircle) {
-      this.drawCircle(previewCircle, 0.7); // Semi-transparent
+      this.drawCircle(previewCircle, 1.0); // Full opacity for accurate colors
     }
   }
 
@@ -77,14 +85,10 @@ export class Renderer {
     }
   }
 
-  // Draw the drop zone at the top
-  private drawDropZone(): void {
-    // Draw drop zone background with theme-aware color
-    this.ctx.fillStyle = 'rgba(148, 163, 184, 0.1)'; // Subtle gray overlay
-    this.ctx.fillRect(0, 0, this.width, DROP_ZONE_HEIGHT);
-
-    // Draw bottom border of drop zone (solid line separator)
-    this.ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)'; // More subtle, semi-transparent
+  // Draw the drop zone underlay (background above danger line)
+  private drawDropZoneUnderlay(): void {
+    // Just draw a border line - no background fill
+    this.ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
     this.ctx.lineWidth = 2;
     this.ctx.beginPath();
     this.ctx.moveTo(0, DROP_ZONE_HEIGHT);
@@ -95,7 +99,7 @@ export class Renderer {
   // Draw a single circle
   private drawCircle(circle: Circle, alpha: number = 1): void {
     const { position, radius, level } = circle;
-    const color = FRUIT_COLORS[level];
+    const color = this.colors[level];
 
     this.ctx.save();
     this.ctx.globalAlpha = alpha;

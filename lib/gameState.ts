@@ -19,7 +19,8 @@ export interface GameState {
   circles: Circle[];
   score: number;
   status: GameStatus;
-  nextFruitLevel: number;
+  nextFruitLevel: number; // Level for current preview circle
+  upcomingFruitLevel: number; // Level for the circle after next (shown in UI)
   previewCircle: Circle | null;
   highestLevel: number;
   powerUps: number; // Available destroy power-ups
@@ -35,11 +36,15 @@ export class GameStateManager {
   private onMergeCallback?: () => void;
   private width: number = CONTAINER_WIDTH;
   private height: number = CONTAINER_HEIGHT;
+  private lastMouseX: number = CONTAINER_WIDTH / 2; // Track last mouse position
 
   constructor(onMerge?: () => void, width?: number, height?: number) {
     this.state = this.createInitialState();
     this.onMergeCallback = onMerge;
-    if (width) this.width = width;
+    if (width) {
+      this.width = width;
+      this.lastMouseX = width / 2;
+    }
     if (height) this.height = height;
   }
 
@@ -49,6 +54,7 @@ export class GameStateManager {
       score: 0,
       status: 'ready',
       nextFruitLevel: this.randomStartingLevel(),
+      upcomingFruitLevel: this.randomStartingLevel(),
       previewCircle: null,
       highestLevel: 0,
       powerUps: 0,
@@ -94,11 +100,16 @@ export class GameStateManager {
     };
   }
 
-  // Update preview position (create if needed)
+  // Update preview position (only if preview exists and dropping is allowed)
   updatePreviewPosition(x: number): void {
+    // Always track the last mouse position
+    this.lastMouseX = x;
+
     if (!this.state.previewCircle) {
-      // Create preview if it doesn't exist
-      this.createPreview(x);
+      // Only create preview if we're allowed to drop
+      if (this.canDrop) {
+        this.createPreview(x);
+      }
       return;
     }
 
@@ -125,9 +136,10 @@ export class GameStateManager {
 
     this.state.circles.push(newCircle);
 
-    // Generate next fruit level and create new preview immediately
-    this.state.nextFruitLevel = this.randomStartingLevel();
-    this.createPreview(dropX);
+    // Shift upcoming to next, and generate new upcoming
+    this.state.nextFruitLevel = this.state.upcomingFruitLevel;
+    this.state.upcomingFruitLevel = this.randomStartingLevel();
+    this.state.previewCircle = null;
 
     // Prevent dropping until this circle clears the danger line
     this.canDrop = false;
@@ -144,6 +156,10 @@ export class GameStateManager {
       // Check if it has passed below the danger line
       if (lastCircle.position.y - lastCircle.radius > DANGER_LINE_Y) {
         this.canDrop = true;
+        // Create preview circle at last known mouse position when dropping becomes available
+        if (!this.state.previewCircle) {
+          this.createPreview(this.lastMouseX);
+        }
       }
     }
   }
@@ -222,9 +238,9 @@ export class GameStateManager {
     // Update score
     this.state.score += MERGE_POINTS[c1.level];
 
-    // Check if we should award a power-up (every 100 points, max 1)
-    const currentMilestone = Math.floor(this.state.score / 100);
-    const lastMilestone = Math.floor(this.state.lastPowerUpScore / 100);
+    // Check if we should award a power-up (every 1000 points, max 1)
+    const currentMilestone = Math.floor(this.state.score / 1000);
+    const lastMilestone = Math.floor(this.state.lastPowerUpScore / 1000);
 
     if (currentMilestone > lastMilestone && this.state.powerUps === 0) {
       this.state.powerUps = 1;

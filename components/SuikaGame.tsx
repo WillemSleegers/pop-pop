@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Bomb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { PaletteSelector } from '@/components/palette-selector';
 import { PhysicsEngine } from '@/lib/physics';
 import { GameStateManager, GameStatus } from '@/lib/gameState';
 import { Renderer } from '@/lib/renderer';
 import { InputHandler } from '@/lib/inputHandler';
-import { FRUIT_COLORS, FRUIT_RADII } from '@/lib/gameConfig';
+import { COLOR_PALETTES, ColorPalette, FRUIT_RADII } from '@/lib/gameConfig';
 
 export default function SuikaGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -17,6 +18,7 @@ export default function SuikaGame() {
   const [nextLevel, setNextLevel] = useState(0);
   const [powerUps, setPowerUps] = useState(0);
   const [destroyMode, setDestroyMode] = useState(false);
+  const [colorPalette, setColorPalette] = useState<ColorPalette>('rainbow');
 
   // Game loop refs
   const physicsRef = useRef<PhysicsEngine | null>(null);
@@ -31,6 +33,13 @@ export default function SuikaGame() {
     mergeAudioRef.current = new Audio('/assets/sounds/merge.mp3');
     mergeAudioRef.current.volume = 0.5;
   }, []);
+
+  // Update renderer colors when palette changes
+  useEffect(() => {
+    if (rendererRef.current) {
+      rendererRef.current.setColors(COLOR_PALETTES[colorPalette]);
+    }
+  }, [colorPalette]);
 
   // Initialize game
   useEffect(() => {
@@ -51,10 +60,11 @@ export default function SuikaGame() {
       physicsRef.current = new PhysicsEngine(width, height);
       gameStateRef.current = new GameStateManager(
         () => {
-          // Play merge sound
+          // Play merge sound - clone audio to allow overlapping sounds
           if (mergeAudioRef.current) {
-            mergeAudioRef.current.currentTime = 0;
-            mergeAudioRef.current.play().catch(() => {
+            const sound = mergeAudioRef.current.cloneNode() as HTMLAudioElement;
+            sound.volume = 0.5;
+            sound.play().catch(() => {
               // Ignore errors from autoplay restrictions
             });
           }
@@ -62,7 +72,7 @@ export default function SuikaGame() {
         width,
         height
       );
-      rendererRef.current = new Renderer(canvas, width, height);
+      rendererRef.current = new Renderer(canvas, width, height, COLOR_PALETTES[colorPalette]);
       inputHandlerRef.current = new InputHandler(canvas);
 
       // Setup input handlers
@@ -103,7 +113,7 @@ export default function SuikaGame() {
         inputHandlerRef.current.destroy();
       }
     };
-  }, []);
+  }, [colorPalette]);
 
   // Game loop
   const startGameLoop = () => {
@@ -134,7 +144,7 @@ export default function SuikaGame() {
 
         // Update UI state
         setScore(state.score);
-        setNextLevel(state.nextFruitLevel);
+        setNextLevel(state.upcomingFruitLevel);
         setPowerUps(state.powerUps);
       }
 
@@ -162,8 +172,8 @@ export default function SuikaGame() {
     handleStart();
   };
 
-  // Handle canvas click for destroy mode
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Handle canvas click/touch for destroy mode
+  const handleDestroyAtPoint = (clientX: number, clientY: number) => {
     if (!destroyMode || !gameStateRef.current || !physicsRef.current) return;
 
     const canvas = canvasRef.current;
@@ -178,8 +188,8 @@ export default function SuikaGame() {
     const logicalWidth = containerRect.width;
     const logicalHeight = containerRect.height;
 
-    const x = ((e.clientX - rect.left) / rect.width) * logicalWidth;
-    const y = ((e.clientY - rect.top) / rect.height) * logicalHeight;
+    const x = ((clientX - rect.left) / rect.width) * logicalWidth;
+    const y = ((clientY - rect.top) / rect.height) * logicalHeight;
 
     const state = gameStateRef.current.getState();
 
@@ -200,8 +210,19 @@ export default function SuikaGame() {
     }
   };
 
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    handleDestroyAtPoint(e.clientX, e.clientY);
+  };
+
+  const handleCanvasTouch = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length > 0) {
+      e.preventDefault();
+      handleDestroyAtPoint(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+    <div className="flex flex-col items-center justify-center min-h-[100dvh] p-4">
       {/* Game Container */}
       <div className="flex flex-col w-full max-w-md">
         {/* Header */}
@@ -210,6 +231,7 @@ export default function SuikaGame() {
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold">Pop Pop</h1>
             <div className="flex items-center gap-2">
+              <PaletteSelector palette={colorPalette} onPaletteChange={setColorPalette} />
               <ThemeToggle />
               {status === 'playing' && (
                 <Button onClick={handleRestart} variant="outline" size="icon" className="border-2 border-border">
@@ -248,7 +270,7 @@ export default function SuikaGame() {
               <div
                 className="rounded-full flex items-center justify-center"
                 style={{
-                  backgroundColor: FRUIT_COLORS[nextLevel],
+                  backgroundColor: COLOR_PALETTES[colorPalette][nextLevel],
                   width: `${FRUIT_RADII[nextLevel] * 1.2}px`,
                   height: `${FRUIT_RADII[nextLevel] * 1.2}px`,
                 }}
@@ -263,6 +285,7 @@ export default function SuikaGame() {
             <canvas
               ref={canvasRef}
               onClick={handleCanvasClick}
+              onTouchStart={handleCanvasTouch}
               className={`bg-background block ${destroyMode ? 'cursor-crosshair' : ''}`}
               style={{
                 touchAction: destroyMode ? 'auto' : 'none',
