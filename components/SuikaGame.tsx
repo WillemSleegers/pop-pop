@@ -33,6 +33,7 @@ export default function SuikaGame() {
   const animationFrameRef = useRef<number | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const audioBufferRef = useRef<AudioBuffer | null>(null)
+  const nameInputRef = useRef<HTMLInputElement | null>(null)
 
   // Initialize Web Audio API for low-latency playback
   useEffect(() => {
@@ -455,7 +456,10 @@ export default function SuikaGame() {
                     Final Score: {score}
                   </p>
                   <div className="space-y-3">
-                    <div className="flex justify-center items-center gap-3 text-2xl font-bold font-mono">
+                    <div
+                      className="flex justify-center items-center gap-3 text-2xl font-bold font-mono cursor-text"
+                      onClick={() => nameInputRef.current?.focus()}
+                    >
                       {[0, 1, 2].map((index) => (
                         <div
                           key={index}
@@ -469,6 +473,7 @@ export default function SuikaGame() {
                         </div>
                       ))}
                       <input
+                        ref={nameInputRef}
                         type="text"
                         value={playerName}
                         onChange={(e) =>
