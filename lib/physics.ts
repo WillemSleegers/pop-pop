@@ -2,6 +2,15 @@
 // Handles circle physics: gravity, collisions, and boundaries
 
 import Matter from 'matter-js';
+import {
+  GRAVITY_Y,
+  RESTITUTION,
+  FRICTION,
+  AIR_RESISTANCE,
+  DENSITY,
+  WALL_THICKNESS,
+  PHYSICS_FPS,
+} from './gameConfig';
 
 export interface Vector2 {
   x: number;
@@ -30,19 +39,18 @@ export class PhysicsEngine {
   ) {
     // Create Matter.js engine
     this.engine = Matter.Engine.create({
-      gravity: { x: 0, y: 1 }, // Gravity pointing down
+      gravity: { x: 0, y: GRAVITY_Y }, // Gravity pointing down
     });
     this.world = this.engine.world;
 
     // Create container walls
-    const wallThickness = 50;
     const walls = [
       // Bottom
-      Matter.Bodies.rectangle(width / 2, height + wallThickness / 2, width, wallThickness, { isStatic: true }),
+      Matter.Bodies.rectangle(width / 2, height + WALL_THICKNESS / 2, width, WALL_THICKNESS, { isStatic: true }),
       // Left
-      Matter.Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, { isStatic: true }),
+      Matter.Bodies.rectangle(-WALL_THICKNESS / 2, height / 2, WALL_THICKNESS, height, { isStatic: true }),
       // Right
-      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height, { isStatic: true }),
+      Matter.Bodies.rectangle(width + WALL_THICKNESS / 2, height / 2, WALL_THICKNESS, height, { isStatic: true }),
     ];
     Matter.World.add(this.world, walls);
   }
@@ -53,7 +61,7 @@ export class PhysicsEngine {
     this.syncToPhysics(circles);
 
     // Step the physics simulation
-    Matter.Engine.update(this.engine, 1000 / 60); // 60 FPS
+    Matter.Engine.update(this.engine, 1000 / PHYSICS_FPS);
 
     // Sync back from Matter.js to circles
     this.syncFromPhysics(circles);
@@ -71,10 +79,10 @@ export class PhysicsEngine {
           circle.position.y,
           circle.radius,
           {
-            restitution: 0.1, // Low bounciness
-            friction: 0.1,
-            frictionAir: 0.01, // Air resistance
-            density: 0.001,
+            restitution: RESTITUTION,
+            friction: FRICTION,
+            frictionAir: AIR_RESISTANCE,
+            density: DENSITY,
             isStatic: circle.isStatic,
           }
         );

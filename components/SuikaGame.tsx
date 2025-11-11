@@ -100,7 +100,22 @@ export default function SuikaGame() {
           }
         },
         width,
-        height
+        height,
+        () => {
+          // Play explosion sound with Web Audio API (lower pitch, louder)
+          if (audioContextRef.current && audioBufferRef.current) {
+            const source = audioContextRef.current.createBufferSource()
+            source.buffer = audioBufferRef.current
+            source.playbackRate.value = 0.7 // Lower pitch for explosion
+
+            const gainNode = audioContextRef.current.createGain()
+            gainNode.gain.value = 0.8 // Louder than merge
+
+            source.connect(gainNode)
+            gainNode.connect(audioContextRef.current.destination)
+            source.start(0)
+          }
+        }
       )
       rendererRef.current = new Renderer(
         canvas,
@@ -178,6 +193,9 @@ export default function SuikaGame() {
         // Check for merges
         gameState.checkMerges()
 
+        // Update particles
+        gameState.updateParticles()
+
         // Check for game over
         if (gameState.checkGameOver()) {
           setStatus("gameOver")
@@ -191,7 +209,7 @@ export default function SuikaGame() {
       }
 
       // Render
-      renderer.render(state.circles, state.previewCircle)
+      renderer.render(state.circles, state.previewCircle, state.particles)
 
       animationFrameRef.current = requestAnimationFrame(loop)
     }
@@ -277,8 +295,11 @@ export default function SuikaGame() {
       const distance = Math.sqrt(dx * dx + dy * dy)
 
       if (distance <= circle.radius) {
+        // Get the color for this circle
+        const color = COLOR_PALETTES[colorPalette][circle.level]
+
         // Destroy this circle
-        if (gameStateRef.current.destroyCircle(circle.id)) {
+        if (gameStateRef.current.destroyCircle(circle.id, color)) {
           setDestroyMode(false)
           setPowerUps(0)
         }

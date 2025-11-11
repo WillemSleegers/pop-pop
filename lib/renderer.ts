@@ -2,6 +2,7 @@
 // Handles all drawing operations for the game
 
 import { Circle } from './physics';
+import { Particle } from './gameState';
 import { DANGER_LINE_Y, DROP_ZONE_HEIGHT } from './gameConfig';
 
 export class Renderer {
@@ -47,7 +48,8 @@ export class Renderer {
   // Render the entire game state
   render(
     circles: Circle[],
-    previewCircle: Circle | null
+    previewCircle: Circle | null,
+    particles: Particle[] = []
   ): void {
     this.clear();
 
@@ -57,6 +59,11 @@ export class Renderer {
     // Draw all circles on top of underlay
     for (const circle of circles) {
       this.drawCircle(circle);
+    }
+
+    // Draw particles
+    for (const particle of particles) {
+      this.drawParticle(particle);
     }
 
     // Draw preview circle
@@ -108,6 +115,21 @@ export class Renderer {
     this.ctx.fillStyle = color;
     this.ctx.beginPath();
     this.ctx.arc(position.x, position.y, radius, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    this.ctx.restore();
+  }
+
+  // Draw a single particle
+  private drawParticle(particle: Particle): void {
+    const { position, radius, color, life } = particle;
+
+    this.ctx.save();
+    this.ctx.globalAlpha = life; // Fade out as life decreases
+
+    this.ctx.fillStyle = color;
+    this.ctx.beginPath();
+    this.ctx.arc(position.x, position.y, radius * life, 0, Math.PI * 2);
     this.ctx.fill();
 
     this.ctx.restore();

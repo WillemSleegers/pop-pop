@@ -11,12 +11,32 @@ import {
   DANGER_LINE_Y,
   DANGER_LINE_TIMEOUT,
   DROP_ZONE_HEIGHT,
+  POWERUP_POINTS_THRESHOLD,
+  MAX_POWERUPS,
+  MERGE_TOLERANCE,
+  PARTICLE_COUNT,
+  PARTICLE_MIN_SPEED,
+  PARTICLE_MAX_SPEED,
+  PARTICLE_LIFETIME,
+  PARTICLE_SIZE_RATIO,
 } from './gameConfig';
 
 export type GameStatus = 'ready' | 'playing' | 'gameOver';
 
+export interface Particle {
+  id: string;
+  position: { x: number; y: number };
+  velocity: { x: number; y: number };
+  radius: number;
+  color: string;
+  life: number; // 0 to 1, decreases over time
+  maxLife: number; // milliseconds
+  createdAt: number; // timestamp
+}
+
 export interface GameState {
   circles: Circle[];
+  particles: Particle[];
   score: number;
   status: GameStatus;
   nextFruitLevel: number; // Level for current preview circle
@@ -34,13 +54,15 @@ export class GameStateManager {
   private mergeQueue: Array<{ c1: Circle; c2: Circle }> = [];
   private canDrop = true; // Track if we can drop a new circle
   private onMergeCallback?: () => void;
+  private onExplosionCallback?: () => void;
   private width: number = CONTAINER_WIDTH;
   private height: number = CONTAINER_HEIGHT;
   private lastMouseX: number = CONTAINER_WIDTH / 2; // Track last mouse position
 
-  constructor(onMerge?: () => void, width?: number, height?: number) {
+  constructor(onMerge?: () => void, width?: number, height?: number, onExplosion?: () => void) {
     this.state = this.createInitialState();
     this.onMergeCallback = onMerge;
+    this.onExplosionCallback = onExplosion;
     if (width) {
       this.width = width;
       this.lastMouseX = width / 2;
@@ -51,6 +73,7 @@ export class GameStateManager {
   private createInitialState(): GameState {
     return {
       circles: [],
+      particles: [],
       score: 0,
       status: 'ready',
       nextFruitLevel: this.randomStartingLevel(),
@@ -186,8 +209,7 @@ export class GameStateManager {
           const distance = Math.sqrt(dx * dx + dy * dy);
           const touchDistance = c1.radius + c2.radius;
 
-          if (distance <= touchDistance * 1.05) {
-            // Allow slight gap for merging (5% tolerance)
+          if (distance <= touchDistance * MERGE_TOLERANCE) {
             this.mergeQueue.push({ c1, c2 });
             c1.merged = true;
             c2.merged = true;
@@ -236,12 +258,12 @@ export class GameStateManager {
     // Update score
     this.state.score += MERGE_POINTS[c1.level];
 
-    // Check if we should award a power-up (every 1000 points, max 1)
-    const currentMilestone = Math.floor(this.state.score / 1000);
-    const lastMilestone = Math.floor(this.state.lastPowerUpScore / 1000);
+    // Check if we should award a power-up
+    const currentMilestone = Math.floor(this.state.score / POWERUP_POINTS_THRESHOLD);
+    const lastMilestone = Math.floor(this.state.lastPowerUpScore / POWERUP_POINTS_THRESHOLD);
 
-    if (currentMilestone > lastMilestone && this.state.powerUps === 0) {
-      this.state.powerUps = 1;
+    if (currentMilestone > lastMilestone && this.state.powerUps < MAX_POWERUPS) {
+      this.state.powerUps = Math.min(this.state.powerUps + 1, MAX_POWERUPS);
       this.state.lastPowerUpScore = this.state.score;
     }
 
@@ -251,18 +273,72 @@ export class GameStateManager {
     }
   }
 
+  // Create explosion particles
+  private createExplosion(circle: Circle, color: string): void {
+    const now = Date.now();
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      const angle = (Math.PI * 2 * i) / PARTICLE_COUNT;
+      const speed = PARTICLE_MIN_SPEED + Math.random() * (PARTICLE_MAX_SPEED - PARTICLE_MIN_SPEED);
+
+      const particle: Particle = {
+        id: `particle-${this.nextId++}`,
+        position: { x: circle.position.x, y: circle.position.y },
+        velocity: {
+          x: Math.cos(angle) * speed,
+          y: Math.sin(angle) * speed,
+        },
+        radius: circle.radius * PARTICLE_SIZE_RATIO,
+        color: color,
+        life: 1,
+        maxLife: PARTICLE_LIFETIME,
+        createdAt: now,
+      };
+
+      this.state.particles.push(particle);
+    }
+  }
+
   // Use a power-up to destroy a circle
-  destroyCircle(circleId: string): boolean {
+  destroyCircle(circleId: string, color: string): boolean {
     if (this.state.powerUps === 0) return false;
 
     const circleIndex = this.state.circles.findIndex((c) => c.id === circleId);
     if (circleIndex === -1) return false;
+
+    const circle = this.state.circles[circleIndex];
+
+    // Create explosion effect
+    this.createExplosion(circle, color);
+
+    // Play explosion sound
+    if (this.onExplosionCallback) {
+      this.onExplosionCallback();
+    }
 
     // Remove the circle
     this.state.circles.splice(circleIndex, 1);
     this.state.powerUps -= 1;
 
     return true;
+  }
+
+  // Update particles (called every frame)
+  updateParticles(): void {
+    const now = Date.now();
+
+    for (const particle of this.state.particles) {
+      const age = now - particle.createdAt;
+      particle.life = Math.max(0, 1 - age / particle.maxLife);
+
+      // Update position based on velocity (assuming ~60fps, so 1/60 second)
+      const dt = 1 / 60;
+      particle.position.x += particle.velocity.x * dt;
+      particle.position.y += particle.velocity.y * dt;
+    }
+
+    // Remove dead particles
+    this.state.particles = this.state.particles.filter((p) => p.life > 0);
   }
 
   // Check for game over condition
