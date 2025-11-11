@@ -10,7 +10,7 @@ import { PhysicsEngine } from "@/lib/physics"
 import { GameStateManager, GameStatus } from "@/lib/gameState"
 import { Renderer } from "@/lib/renderer"
 import { InputHandler } from "@/lib/inputHandler"
-import { COLOR_PALETTES, ColorPalette, FRUIT_RADII } from "@/lib/gameConfig"
+import { COLOR_PALETTES, ColorPalette, BASE_FRUIT_RADII } from "@/lib/gameConfig"
 
 export default function SuikaGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -24,6 +24,7 @@ export default function SuikaGame() {
   const [showNameInput, setShowNameInput] = useState(false)
   const [playerName, setPlayerName] = useState("")
   const [submittingScore, setSubmittingScore] = useState(false)
+  const [fruitRadii, setFruitRadii] = useState<number[]>(BASE_FRUIT_RADII)
 
   // Game loop refs
   const physicsRef = useRef<PhysicsEngine | null>(null)
@@ -155,6 +156,8 @@ export default function SuikaGame() {
         setStatus("playing")
         // Create initial preview at center
         gameStateRef.current.createPreview(width / 2)
+        // Update radii state for UI rendering
+        setFruitRadii(gameStateRef.current.getRadii())
       }
     }
 
@@ -391,8 +394,8 @@ export default function SuikaGame() {
                 className="rounded-full"
                 style={{
                   backgroundColor: COLOR_PALETTES[colorPalette][nextLevel],
-                  width: `${FRUIT_RADII[nextLevel] * 1.2}px`,
-                  height: `${FRUIT_RADII[nextLevel] * 1.2}px`,
+                  width: `${fruitRadii[nextLevel] * 1.2}px`,
+                  height: `${fruitRadii[nextLevel] * 1.2}px`,
                 }}
               />
             </div>

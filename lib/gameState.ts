@@ -4,7 +4,7 @@
 import { Circle } from './physics';
 import {
   FRUIT_LEVELS,
-  FRUIT_RADII,
+  getScaledRadii,
   MERGE_POINTS,
   CONTAINER_WIDTH,
   CONTAINER_HEIGHT,
@@ -58,6 +58,7 @@ export class GameStateManager {
   private width: number = CONTAINER_WIDTH;
   private height: number = CONTAINER_HEIGHT;
   private lastMouseX: number = CONTAINER_WIDTH / 2; // Track last mouse position
+  private fruitRadii: number[]; // Scaled radii based on canvas width
 
   constructor(onMerge?: () => void, width?: number, height?: number, onExplosion?: () => void) {
     this.state = this.createInitialState();
@@ -68,6 +69,9 @@ export class GameStateManager {
       this.lastMouseX = width / 2;
     }
     if (height) this.height = height;
+
+    // Calculate scaled radii based on canvas width
+    this.fruitRadii = getScaledRadii(this.width);
   }
 
   private createInitialState(): GameState {
@@ -95,6 +99,11 @@ export class GameStateManager {
     return this.state;
   }
 
+  // Get scaled radii for rendering
+  getRadii(): number[] {
+    return this.fruitRadii;
+  }
+
   // Start a new game
   startGame(): void {
     this.state = this.createInitialState();
@@ -107,7 +116,7 @@ export class GameStateManager {
   // Create preview circle at position
   createPreview(x: number): void {
     const level = this.state.nextFruitLevel;
-    const radius = FRUIT_RADII[level];
+    const radius = this.fruitRadii[level];
 
     // Clamp x position to container bounds
     const clampedX = Math.max(radius, Math.min(this.width - radius, x));
@@ -247,7 +256,7 @@ export class GameStateManager {
         x: (c1.velocity.x + c2.velocity.x) / 2,
         y: (c1.velocity.y + c2.velocity.y) / 2,
       },
-      radius: FRUIT_RADII[newLevel],
+      radius: this.fruitRadii[newLevel],
       level: newLevel,
       merged: false,
       isStatic: false,

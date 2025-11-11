@@ -2,8 +2,21 @@
 
 export const FRUIT_LEVELS = 11
 
-// Radius for each fruit level (in pixels)
-export const FRUIT_RADII = [15, 20, 25, 32, 40, 50, 62, 75, 90, 110, 135]
+// Base radius for each fruit level at reference width (in pixels)
+// These will be scaled proportionally based on actual canvas width
+export const BASE_FRUIT_RADII = [15, 20, 25, 32, 40, 50, 62, 75, 90, 110, 135]
+
+// Reference width for base radii (400px - the default canvas width)
+export const REFERENCE_WIDTH = 400
+
+// Calculate scaled radii based on actual canvas width
+export function getScaledRadii(canvasWidth: number): number[] {
+  const scale = canvasWidth / REFERENCE_WIDTH
+  return BASE_FRUIT_RADII.map((radius) => radius * scale)
+}
+
+// Export FRUIT_RADII for backwards compatibility (same as BASE_FRUIT_RADII)
+export const FRUIT_RADII = BASE_FRUIT_RADII
 
 // Color palettes - designed to maximize distinction between adjacent levels
 export const COLOR_PALETTES = {
