@@ -112,10 +112,11 @@ export const MERGE_POINTS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 export const CONTAINER_WIDTH = 400
 export const CONTAINER_HEIGHT = 600
 
-// Drop zone at top
-export const DROP_ZONE_HEIGHT = 80
+// Drop zone at top (where preview circles hover before drop)
+// Increased to comfortably fit largest droppable circle (level 4, radius 40px)
+export const DROP_ZONE_HEIGHT = 100
 
-// Danger line is at the bottom of the drop zone
+// Danger line position - circles above this for too long trigger game over
 export const DANGER_LINE_Y = DROP_ZONE_HEIGHT
 export const DANGER_LINE_TIMEOUT = 2000 // How long fruit can be above line (ms)
 
