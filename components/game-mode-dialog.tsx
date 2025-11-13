@@ -64,7 +64,7 @@ export function GameModeDialog({ open, onSelectMode }: GameModeDialogProps) {
               <div className="flex-1">
                 <h3 className="text-lg font-semibold mb-1">Speed Mode</h3>
                 <p className="text-sm text-muted-foreground">
-                  Circles auto-drop with increasing speed as you score! Starts at 2s, gets faster every 100 points. Ultimate challenge!
+                  Circles auto-drop with increasing speed as you score! Starts at 2s, gets faster every 200 points. Ultimate challenge!
                 </p>
                 <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1 rounded-md bg-orange-500/10 px-2 py-1 font-medium text-orange-500">

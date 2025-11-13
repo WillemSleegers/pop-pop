@@ -146,25 +146,26 @@ export type GameMode = 'relax' | 'speed'
 
 // Speed mode progression settings
 export const INITIAL_DROP_INTERVAL = 2000 // Starting drop interval in speed mode (milliseconds)
-export const MIN_DROP_INTERVAL = 500 // Fastest possible drop interval (milliseconds)
-export const SPEED_INCREASE_THRESHOLD = 100 // Points needed to trigger next speed increase
+export const MIN_DROP_INTERVAL = 800 // Fastest possible drop interval (milliseconds)
+export const SPEED_INCREASE_THRESHOLD = 200 // Points needed to trigger next speed increase
 
 /**
  * Calculate auto-drop interval based on current score
- * Speed increases every 100 points, from 2000ms down to minimum 500ms
+ * Speed increases every 200 points, from 2000ms down to minimum 800ms
+ * More gradual progression for better gameplay experience
  *
  * Progression:
- * - 0-99 pts: 2000ms (2.0s)
- * - 100-199 pts: 1750ms (1.75s)
- * - 200-299 pts: 1500ms (1.5s)
- * - 300-399 pts: 1250ms (1.25s)
- * - 400-499 pts: 1000ms (1.0s)
- * - 500-599 pts: 750ms (0.75s)
- * - 600+ pts: 500ms (0.5s) - maximum difficulty
+ * - 0-199 pts: 2000ms (2.0s) - Starting pace
+ * - 200-399 pts: 1800ms (1.8s)
+ * - 400-599 pts: 1600ms (1.6s)
+ * - 600-799 pts: 1400ms (1.4s)
+ * - 800-999 pts: 1200ms (1.2s)
+ * - 1000-1199 pts: 1000ms (1.0s)
+ * - 1200+ pts: 800ms (0.8s) - Maximum difficulty
  */
 export function getDropInterval(score: number): number {
   const speedLevel = Math.floor(score / SPEED_INCREASE_THRESHOLD)
-  const decreaseAmount = 250 // Decrease by 250ms per level
+  const decreaseAmount = 200 // Decrease by 200ms per level
   const interval = INITIAL_DROP_INTERVAL - (speedLevel * decreaseAmount)
   return Math.max(MIN_DROP_INTERVAL, interval)
 }
