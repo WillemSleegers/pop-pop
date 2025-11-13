@@ -19,6 +19,7 @@ import {
   PARTICLE_MAX_SPEED,
   PARTICLE_LIFETIME,
   PARTICLE_SIZE_RATIO,
+  GameMode,
 } from './gameConfig';
 
 export type GameStatus = 'ready' | 'playing' | 'gameOver';
@@ -45,6 +46,7 @@ export interface GameState {
   highestLevel: number;
   powerUps: number; // Available destroy power-ups
   lastPowerUpScore: number; // Last score milestone where power-up was awarded
+  gameMode: GameMode; // Current game mode
 }
 
 export class GameStateManager {
@@ -86,6 +88,7 @@ export class GameStateManager {
       highestLevel: 0,
       powerUps: 0,
       lastPowerUpScore: 0,
+      gameMode: 'relax', // Default to relax mode
     };
   }
 
@@ -387,5 +390,15 @@ export class GameStateManager {
   // Update circles array (called after physics update)
   updateCircles(circles: Circle[]): void {
     this.state.circles = circles;
+  }
+
+  // Set game mode (must be called before starting game)
+  setGameMode(mode: GameMode): void {
+    this.state.gameMode = mode;
+  }
+
+  // Check if we can drop a circle (used for speed mode)
+  canDropCircle(): boolean {
+    return this.canDrop;
   }
 }

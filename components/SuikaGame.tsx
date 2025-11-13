@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { PaletteSelector } from "@/components/palette-selector"
 import { Leaderboard } from "@/components/leaderboard"
+import { GameModeDialog } from "@/components/game-mode-dialog"
 import { PhysicsEngine } from "@/lib/physics"
 import { GameStateManager, GameStatus } from "@/lib/gameState"
 import { Renderer } from "@/lib/renderer"
 import { InputHandler } from "@/lib/inputHandler"
-import { COLOR_PALETTES, ColorPalette, BASE_FRUIT_RADII } from "@/lib/gameConfig"
+import { COLOR_PALETTES, ColorPalette, BASE_FRUIT_RADII, GameMode, AUTO_DROP_INTERVAL } from "@/lib/gameConfig"
 
 export default function SuikaGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -25,6 +26,8 @@ export default function SuikaGame() {
   const [playerName, setPlayerName] = useState("")
   const [submittingScore, setSubmittingScore] = useState(false)
   const [fruitRadii, setFruitRadii] = useState<number[]>(BASE_FRUIT_RADII)
+  const [showModeDialog, setShowModeDialog] = useState(true)
+  const [gameMode, setGameMode] = useState<GameMode>("relax")
 
   // Game loop refs
   const physicsRef = useRef<PhysicsEngine | null>(null)
@@ -35,6 +38,7 @@ export default function SuikaGame() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const audioBufferRef = useRef<AudioBuffer | null>(null)
   const nameInputRef = useRef<HTMLInputElement | null>(null)
+  const autoDropTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Initialize Web Audio API for low-latency playback
   useEffect(() => {
@@ -149,14 +153,8 @@ export default function SuikaGame() {
       // Start render loop
       startGameLoop()
 
-      // Auto-start the game
+      // Update radii state for UI rendering (don't auto-start game)
       if (gameStateRef.current) {
-        gameStateRef.current.startGame()
-        gameStateRef.current.setStatus("playing")
-        setStatus("playing")
-        // Create initial preview at center
-        gameStateRef.current.createPreview(width / 2)
-        // Update radii state for UI rendering
         setFruitRadii(gameStateRef.current.getRadii())
       }
     }
@@ -171,6 +169,9 @@ export default function SuikaGame() {
       }
       if (inputHandlerRef.current) {
         inputHandlerRef.current.destroy()
+      }
+      if (autoDropTimerRef.current) {
+        clearInterval(autoDropTimerRef.current)
       }
     }
   }, [colorPalette])
@@ -204,6 +205,7 @@ export default function SuikaGame() {
         if (gameState.checkGameOver()) {
           setStatus("gameOver")
           setShowNameInput(true)
+          stopAutoDropTimer()
         }
 
         // Update UI state
@@ -221,6 +223,57 @@ export default function SuikaGame() {
     loop()
   }
 
+  // Handle mode selection
+  const handleModeSelect = (mode: GameMode) => {
+    setGameMode(mode)
+    setShowModeDialog(false)
+
+    if (gameStateRef.current) {
+      gameStateRef.current.setGameMode(mode)
+      gameStateRef.current.startGame()
+      gameStateRef.current.setStatus("playing")
+      setStatus("playing")
+      setScore(0)
+
+      // Get canvas dimensions for initial preview
+      const canvas = canvasRef.current
+      if (canvas && canvas.parentElement) {
+        const width = canvas.parentElement.clientWidth
+        gameStateRef.current.createPreview(width / 2)
+      }
+
+      // Start auto-drop timer for speed mode
+      if (mode === "speed") {
+        startAutoDropTimer()
+      }
+    }
+  }
+
+  // Start auto-drop timer for speed mode
+  const startAutoDropTimer = () => {
+    if (autoDropTimerRef.current) {
+      clearInterval(autoDropTimerRef.current)
+    }
+
+    autoDropTimerRef.current = setInterval(() => {
+      if (gameStateRef.current) {
+        const state = gameStateRef.current.getState()
+        // Only auto-drop if playing and drop is available
+        if (state.status === "playing" && gameStateRef.current.canDropCircle()) {
+          gameStateRef.current.dropCircle()
+        }
+      }
+    }, AUTO_DROP_INTERVAL)
+  }
+
+  // Stop auto-drop timer
+  const stopAutoDropTimer = () => {
+    if (autoDropTimerRef.current) {
+      clearInterval(autoDropTimerRef.current)
+      autoDropTimerRef.current = null
+    }
+  }
+
   // Start game
   const handleStart = () => {
     if (gameStateRef.current) {
@@ -235,7 +288,8 @@ export default function SuikaGame() {
   const handleRestart = () => {
     setShowNameInput(false)
     setPlayerName("")
-    handleStart()
+    stopAutoDropTimer()
+    setShowModeDialog(true)
   }
 
   // Submit score
@@ -518,6 +572,9 @@ export default function SuikaGame() {
 
       {/* Leaderboard Dialog */}
       <Leaderboard open={showLeaderboard} onOpenChange={setShowLeaderboard} />
+
+      {/* Game Mode Dialog */}
+      <GameModeDialog open={showModeDialog} onSelectMode={handleModeSelect} />
     </div>
   )
 }

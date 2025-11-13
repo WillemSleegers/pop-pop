@@ -140,3 +140,7 @@ export const PARTICLE_MIN_SPEED = 100 // Minimum particle speed (pixels/second)
 export const PARTICLE_MAX_SPEED = 200 // Maximum particle speed (pixels/second)
 export const PARTICLE_LIFETIME = 500 // Particle lifetime in milliseconds
 export const PARTICLE_SIZE_RATIO = 0.25 // Particle size relative to circle (1/4)
+
+// Game mode configuration
+export type GameMode = 'relax' | 'speed'
+export const AUTO_DROP_INTERVAL = 2000 // Auto-drop interval in speed mode (milliseconds)
