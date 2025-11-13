@@ -17,13 +17,7 @@ import { PhysicsEngine } from "@/lib/physics"
 import { GameStateManager, GameStatus } from "@/lib/game-state"
 import { createRenderer, Renderer } from "@/lib/renderer"
 import { InputHandler } from "@/lib/input-handler"
-import {
-  COLOR_PALETTES,
-  ColorPalette,
-  BASE_FRUIT_RADII,
-  GameMode,
-  getDropInterval,
-} from "@/lib/game-config"
+import { COLOR_PALETTES, ColorPalette, BASE_FRUIT_RADII, GameMode, getDropInterval } from "@/lib/game-config"
 
 export default function SuikaGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)

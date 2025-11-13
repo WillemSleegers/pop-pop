@@ -3,7 +3,7 @@
 
 import { Circle } from './physics';
 import { Particle } from './game-state';
-import { DROP_ZONE_HEIGHT } from './game-config';
+import { DANGER_LINE_Y, DROP_ZONE_HEIGHT } from './game-config';
 
 // Draw the drop zone underlay (background above danger line)
 const drawDropZoneUnderlay = (
