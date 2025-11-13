@@ -11,7 +11,7 @@ import { PhysicsEngine } from "@/lib/physics"
 import { GameStateManager, GameStatus } from "@/lib/gameState"
 import { Renderer } from "@/lib/renderer"
 import { InputHandler } from "@/lib/inputHandler"
-import { COLOR_PALETTES, ColorPalette, BASE_FRUIT_RADII, GameMode, AUTO_DROP_INTERVAL } from "@/lib/gameConfig"
+import { COLOR_PALETTES, ColorPalette, BASE_FRUIT_RADII, GameMode, getDropInterval } from "@/lib/gameConfig"
 
 export default function SuikaGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -171,7 +171,7 @@ export default function SuikaGame() {
         inputHandlerRef.current.destroy()
       }
       if (autoDropTimerRef.current) {
-        clearInterval(autoDropTimerRef.current)
+        clearTimeout(autoDropTimerRef.current)
       }
     }
   }, [colorPalette])
@@ -249,27 +249,43 @@ export default function SuikaGame() {
     }
   }
 
-  // Start auto-drop timer for speed mode
+  // Start auto-drop timer for speed mode with dynamic speed based on score
   const startAutoDropTimer = () => {
     if (autoDropTimerRef.current) {
-      clearInterval(autoDropTimerRef.current)
+      clearTimeout(autoDropTimerRef.current)
     }
 
-    autoDropTimerRef.current = setInterval(() => {
+    const scheduleNextDrop = () => {
       if (gameStateRef.current) {
         const state = gameStateRef.current.getState()
-        // Only auto-drop if playing and drop is available
-        if (state.status === "playing" && gameStateRef.current.canDropCircle()) {
-          gameStateRef.current.dropCircle()
+
+        // Only schedule next drop if still playing
+        if (state.status === "playing") {
+          // Calculate interval based on current score
+          const interval = getDropInterval(state.score)
+
+          autoDropTimerRef.current = setTimeout(() => {
+            if (gameStateRef.current) {
+              const currentState = gameStateRef.current.getState()
+              // Only auto-drop if playing and drop is available
+              if (currentState.status === "playing" && gameStateRef.current.canDropCircle()) {
+                gameStateRef.current.dropCircle()
+              }
+            }
+            // Schedule next drop
+            scheduleNextDrop()
+          }, interval)
         }
       }
-    }, AUTO_DROP_INTERVAL)
+    }
+
+    scheduleNextDrop()
   }
 
   // Stop auto-drop timer
   const stopAutoDropTimer = () => {
     if (autoDropTimerRef.current) {
-      clearInterval(autoDropTimerRef.current)
+      clearTimeout(autoDropTimerRef.current)
       autoDropTimerRef.current = null
     }
   }
