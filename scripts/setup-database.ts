@@ -26,13 +26,20 @@ async function setupDatabase() {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         player_name TEXT NOT NULL,
         score INTEGER NOT NULL,
+        game_mode TEXT NOT NULL DEFAULT 'relax',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )
     `;
 
-    // Create index on score
+    // Add game_mode column if it doesn't exist (migration for existing tables)
     await sql`
-      CREATE INDEX IF NOT EXISTS idx_scores_score ON scores(score DESC)
+      ALTER TABLE scores
+      ADD COLUMN IF NOT EXISTS game_mode TEXT NOT NULL DEFAULT 'relax'
+    `;
+
+    // Create index on score and game_mode for efficient queries
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_scores_score_mode ON scores(game_mode, score DESC)
     `;
 
     // Create index on created_at

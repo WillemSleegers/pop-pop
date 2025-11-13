@@ -320,6 +320,7 @@ export default function SuikaGame() {
         body: JSON.stringify({
           player_name: playerName.trim(),
           score: score,
+          game_mode: gameMode,
         }),
       })
 

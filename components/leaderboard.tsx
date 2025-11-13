@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { GameMode } from '@/lib/gameConfig';
 
 interface Score {
   player_name: string;
   score: number;
+  game_mode: string;
   created_at: string;
 }
 
@@ -16,6 +18,7 @@ interface LeaderboardProps {
 }
 
 export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
+  const [gameMode, setGameMode] = useState<GameMode>('relax');
   const [topScores, setTopScores] = useState<Score[]>([]);
   const [weeklyScores, setWeeklyScores] = useState<Score[]>([]);
   const [loading, setLoading] = useState(false);
@@ -24,14 +27,14 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
     if (open) {
       fetchScores();
     }
-  }, [open]);
+  }, [open, gameMode]);
 
   const fetchScores = async () => {
     setLoading(true);
     try {
       const [topResponse, weeklyResponse] = await Promise.all([
-        fetch('/api/scores/top'),
-        fetch('/api/scores/weekly'),
+        fetch(`/api/scores/top?mode=${gameMode}`),
+        fetch(`/api/scores/weekly?mode=${gameMode}`),
       ]);
 
       if (topResponse.ok) {
@@ -103,6 +106,31 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Leaderboard</DialogTitle>
         </DialogHeader>
+
+        {/* Game Mode Selector */}
+        <div className="flex gap-2 p-1 bg-muted rounded-lg">
+          <button
+            onClick={() => setGameMode('relax')}
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+              gameMode === 'relax'
+                ? 'bg-background shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Relax Mode
+          </button>
+          <button
+            onClick={() => setGameMode('speed')}
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+              gameMode === 'speed'
+                ? 'bg-background shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Speed Mode
+          </button>
+        </div>
+
         <Tabs defaultValue="weekly" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="weekly">This Week</TabsTrigger>

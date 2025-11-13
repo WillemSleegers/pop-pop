@@ -6,7 +6,7 @@ const sql = neon(process.env.DATABASE_URL!);
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { player_name, score } = body;
+    const { player_name, score, game_mode = 'relax' } = body;
 
     // Validate input
     if (!player_name || typeof player_name !== 'string') {
@@ -23,6 +23,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate game_mode
+    if (game_mode !== 'relax' && game_mode !== 'speed') {
+      return NextResponse.json(
+        { error: 'game_mode must be either "relax" or "speed"' },
+        { status: 400 }
+      );
+    }
+
     // Trim and limit player name length (arcade style: 3 chars)
     const trimmedName = player_name.trim().slice(0, 3).toUpperCase();
 
@@ -35,9 +43,9 @@ export async function POST(request: NextRequest) {
 
     // Insert score into database
     const result = await sql`
-      INSERT INTO scores (player_name, score)
-      VALUES (${trimmedName}, ${score})
-      RETURNING id, player_name, score, created_at
+      INSERT INTO scores (player_name, score, game_mode)
+      VALUES (${trimmedName}, ${score}, ${game_mode})
+      RETURNING id, player_name, score, game_mode, created_at
     `;
 
     return NextResponse.json(result[0], { status: 201 });
