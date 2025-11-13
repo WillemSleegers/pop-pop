@@ -48,6 +48,47 @@ export default function SuikaGame() {
   const nameInputRef = useRef<HTMLInputElement | null>(null)
   const autoDropTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Start auto-drop timer for speed mode with dynamic speed based on score
+  const startAutoDropTimer = () => {
+    if (autoDropTimerRef.current) {
+      clearTimeout(autoDropTimerRef.current)
+    }
+
+    const scheduleNextDrop = () => {
+      if (gameStateRef.current) {
+        const state = gameStateRef.current.getState()
+
+        // Only schedule next drop if still playing
+        if (state.status === "playing") {
+          // Calculate interval based on current score
+          const interval = getDropInterval(state.score)
+
+          autoDropTimerRef.current = setTimeout(() => {
+            if (gameStateRef.current) {
+              const currentState = gameStateRef.current.getState()
+              // Only auto-drop if playing and drop is available
+              if (currentState.status === "playing" && gameStateRef.current.canDropCircle()) {
+                gameStateRef.current.dropCircle()
+              }
+            }
+            // Schedule next drop
+            scheduleNextDrop()
+          }, interval)
+        }
+      }
+    }
+
+    scheduleNextDrop()
+  }
+
+  // Stop auto-drop timer
+  const stopAutoDropTimer = () => {
+    if (autoDropTimerRef.current) {
+      clearTimeout(autoDropTimerRef.current)
+      autoDropTimerRef.current = null
+    }
+  }
+
   // Initialize Web Audio API for low-latency playback
   useEffect(() => {
     // Create AudioContext with low latency hint
@@ -278,50 +319,6 @@ export default function SuikaGame() {
       if (gameMode === "speed") {
         startAutoDropTimer()
       }
-    }
-  }
-
-  // Start auto-drop timer for speed mode with dynamic speed based on score
-  const startAutoDropTimer = () => {
-    if (autoDropTimerRef.current) {
-      clearTimeout(autoDropTimerRef.current)
-    }
-
-    const scheduleNextDrop = () => {
-      if (gameStateRef.current) {
-        const state = gameStateRef.current.getState()
-
-        // Only schedule next drop if still playing
-        if (state.status === "playing") {
-          // Calculate interval based on current score
-          const interval = getDropInterval(state.score)
-
-          autoDropTimerRef.current = setTimeout(() => {
-            if (gameStateRef.current) {
-              const currentState = gameStateRef.current.getState()
-              // Only auto-drop if playing and drop is available
-              if (
-                currentState.status === "playing" &&
-                gameStateRef.current.canDropCircle()
-              ) {
-                gameStateRef.current.dropCircle()
-              }
-            }
-            // Schedule next drop
-            scheduleNextDrop()
-          }, interval)
-        }
-      }
-    }
-
-    scheduleNextDrop()
-  }
-
-  // Stop auto-drop timer
-  const stopAutoDropTimer = () => {
-    if (autoDropTimerRef.current) {
-      clearTimeout(autoDropTimerRef.current)
-      autoDropTimerRef.current = null
     }
   }
 
