@@ -165,8 +165,10 @@ export default function SuikaGame() {
           !destroyModeRef.current
         ) {
           gameStateRef.current.dropCircle()
+
           // Reset auto-drop timer in speed mode when manually dropping
-          if (gameMode === "speed") {
+          const state = gameStateRef.current.getState()
+          if (state.gameMode === 'speed') {
             startAutoDropTimer()
           }
         }
