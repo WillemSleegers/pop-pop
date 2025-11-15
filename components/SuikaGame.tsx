@@ -10,7 +10,13 @@ import { PhysicsEngine } from "@/lib/physics"
 import { GameStateManager, GameStatus } from "@/lib/gameState"
 import { Renderer } from "@/lib/renderer"
 import { InputHandler } from "@/lib/inputHandler"
-import { COLOR_PALETTES, ColorPalette, BASE_FRUIT_RADII, GameMode, getDropInterval } from "@/lib/gameConfig"
+import {
+  COLOR_PALETTES,
+  ColorPalette,
+  BASE_FRUIT_RADII,
+  GameMode,
+  getDropInterval,
+} from "@/lib/gameConfig"
 
 export default function SuikaGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -279,7 +285,10 @@ export default function SuikaGame() {
             if (gameStateRef.current) {
               const currentState = gameStateRef.current.getState()
               // Only auto-drop if playing and drop is available
-              if (currentState.status === "playing" && gameStateRef.current.canDropCircle()) {
+              if (
+                currentState.status === "playing" &&
+                gameStateRef.current.canDropCircle()
+              ) {
                 gameStateRef.current.dropCircle()
               }
             }
@@ -424,14 +433,15 @@ export default function SuikaGame() {
           </div>
 
           <div className="w-20 flex flex-col gap-2">
-            {/* Leaderboard */}
+            {/* Restart */}
             <Button
-              onClick={() => setShowLeaderboard(true)}
+              onClick={handleRestart}
               variant="outline"
               size="icon"
-              className="border-2 border-border"
+              className="border-2 border-border ml-auto"
+              disabled={status !== "playing"}
             >
-              <Trophy className="w-5 h-5" />
+              <RotateCcwIcon />
             </Button>
             {/* Bomb */}
             <Button
@@ -448,18 +458,19 @@ export default function SuikaGame() {
 
           <div className="w-20 flex flex-col gap-2">
             <div className="flex gap-2">
-              <div className="flex-1">
-                <ThemeToggle />
-              </div>
+              {/* Leaderboard */}
               <Button
-                onClick={handleRestart}
+                onClick={() => setShowLeaderboard(true)}
                 variant="outline"
                 size="icon"
                 className="border-2 border-border flex-1"
-                disabled={status !== "playing"}
               >
-                <RotateCcwIcon />
+                <Trophy className="w-5 h-5" />
               </Button>
+              {/* Theme */}
+              <div className="flex-1">
+                <ThemeToggle />
+              </div>
             </div>
 
             {/* Preview */}
