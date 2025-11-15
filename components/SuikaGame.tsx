@@ -4,9 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import { Bomb, RotateCcwIcon, Trophy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { PaletteSelector } from "@/components/palette-selector"
 import { Leaderboard } from "@/components/leaderboard"
-import { GameModeDialog } from "@/components/game-mode-dialog"
+import { GameStartScreen } from "@/components/game-start-screen"
 import { PhysicsEngine } from "@/lib/physics"
 import { GameStateManager, GameStatus } from "@/lib/gameState"
 import { Renderer } from "@/lib/renderer"
@@ -26,7 +25,7 @@ export default function SuikaGame() {
   const [playerName, setPlayerName] = useState("")
   const [submittingScore, setSubmittingScore] = useState(false)
   const [fruitRadii, setFruitRadii] = useState<number[]>(BASE_FRUIT_RADII)
-  const [showModeDialog, setShowModeDialog] = useState(true)
+  const [showStartScreen, setShowStartScreen] = useState(true)
   const [gameMode, setGameMode] = useState<GameMode>("relax")
 
   // Game loop refs
@@ -73,8 +72,11 @@ export default function SuikaGame() {
     }
   }, [colorPalette])
 
-  // Initialize game
+  // Initialize game systems when canvas becomes available (after start screen)
   useEffect(() => {
+    // Only initialize when start screen is hidden (canvas is rendered)
+    if (showStartScreen) return
+
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -153,10 +155,13 @@ export default function SuikaGame() {
       // Start render loop
       startGameLoop()
 
-      // Update radii state for UI rendering (don't auto-start game)
+      // Update radii state for UI rendering
       if (gameStateRef.current) {
         setFruitRadii(gameStateRef.current.getRadii())
       }
+
+      // Start the game after initialization
+      startGameAfterInit()
     }
 
     // Small delay to ensure layout is complete
@@ -174,7 +179,7 @@ export default function SuikaGame() {
         clearTimeout(autoDropTimerRef.current)
       }
     }
-  }, [colorPalette])
+  }, [showStartScreen, colorPalette])
 
   // Game loop
   const startGameLoop = () => {
@@ -223,13 +228,19 @@ export default function SuikaGame() {
     loop()
   }
 
-  // Handle mode selection
-  const handleModeSelect = (mode: GameMode) => {
+  // Handle game start from start screen
+  const handleGameStart = (mode: GameMode, palette: ColorPalette) => {
     setGameMode(mode)
-    setShowModeDialog(false)
+    setColorPalette(palette)
+    setShowStartScreen(false)
+    // Game systems will be initialized by useEffect when showStartScreen becomes false
+    // Then startGameAfterInit will be called
+  }
 
+  // Start the game after initialization completes
+  const startGameAfterInit = () => {
     if (gameStateRef.current) {
-      gameStateRef.current.setGameMode(mode)
+      gameStateRef.current.setGameMode(gameMode)
       gameStateRef.current.startGame()
       gameStateRef.current.setStatus("playing")
       setStatus("playing")
@@ -243,7 +254,7 @@ export default function SuikaGame() {
       }
 
       // Start auto-drop timer for speed mode
-      if (mode === "speed") {
+      if (gameMode === "speed") {
         startAutoDropTimer()
       }
     }
@@ -305,7 +316,8 @@ export default function SuikaGame() {
     setShowNameInput(false)
     setPlayerName("")
     stopAutoDropTimer()
-    setShowModeDialog(true)
+    setShowStartScreen(true)
+    setStatus("ready")
   }
 
   // Submit score
@@ -412,24 +424,15 @@ export default function SuikaGame() {
           </div>
 
           <div className="w-20 flex flex-col gap-2">
-            <div className="flex gap-2">
-              {/* Leaderboard */}
-              <Button
-                onClick={() => setShowLeaderboard(true)}
-                variant="outline"
-                size="icon"
-                className="border-2 border-border flex-1"
-              >
-                <Trophy className="w-5 h-5" />
-              </Button>
-              {/* Palette selector */}
-              <div className="flex-1">
-                <PaletteSelector
-                  palette={colorPalette}
-                  onPaletteChange={setColorPalette}
-                />
-              </div>
-            </div>
+            {/* Leaderboard */}
+            <Button
+              onClick={() => setShowLeaderboard(true)}
+              variant="outline"
+              size="icon"
+              className="border-2 border-border"
+            >
+              <Trophy className="w-5 h-5" />
+            </Button>
             {/* Bomb */}
             <Button
               onClick={() => powerUps > 0 && setDestroyMode(!destroyMode)}
@@ -473,27 +476,35 @@ export default function SuikaGame() {
           </div>
         </div>
 
-        {/* Canvas */}
+        {/* Canvas or Start Screen */}
         <div className="rounded-lg overflow-hidden w-full relative">
-          <div
-            className={`border-2 rounded-lg overflow-hidden transition-colors ${
-              destroyMode ? "border-red-500" : "border-input"
-            }`}
-          >
-            <canvas
-              ref={canvasRef}
-              onClick={handleCanvasClick}
-              onTouchStart={handleCanvasTouch}
-              className={`bg-background block ${
-                destroyMode ? "cursor-crosshair" : ""
-              }`}
-              style={{
-                touchAction: destroyMode ? "auto" : "none",
-                width: "100%",
-                aspectRatio: "2/3",
-              }}
+          {showStartScreen ? (
+            <GameStartScreen
+              onStart={handleGameStart}
+              defaultMode={gameMode}
+              defaultPalette={colorPalette}
             />
-          </div>
+          ) : (
+            <div
+              className={`border-2 rounded-lg overflow-hidden transition-colors ${
+                destroyMode ? "border-red-500" : "border-input"
+              }`}
+            >
+              <canvas
+                ref={canvasRef}
+                onClick={handleCanvasClick}
+                onTouchStart={handleCanvasTouch}
+                className={`bg-background block ${
+                  destroyMode ? "cursor-crosshair" : ""
+                }`}
+                style={{
+                  touchAction: destroyMode ? "auto" : "none",
+                  width: "100%",
+                  aspectRatio: "2/3",
+                }}
+              />
+            </div>
+          )}
 
           {/* Game Over Overlay */}
           {status === "gameOver" && !showNameInput && !showLeaderboard && (
@@ -589,9 +600,6 @@ export default function SuikaGame() {
 
       {/* Leaderboard Dialog */}
       <Leaderboard open={showLeaderboard} onOpenChange={setShowLeaderboard} />
-
-      {/* Game Mode Dialog */}
-      <GameModeDialog open={showModeDialog} onSelectMode={handleModeSelect} />
     </div>
   )
 }
