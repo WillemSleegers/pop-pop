@@ -155,6 +155,10 @@ export default function SuikaGame() {
           gameStateRef.current.getState().status === "playing"
         ) {
           gameStateRef.current.dropCircle()
+          // Reset auto-drop timer in speed mode when manually dropping
+          if (gameMode === "speed") {
+            startAutoDropTimer()
+          }
         }
       })
 
