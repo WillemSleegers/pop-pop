@@ -10,7 +10,7 @@ import {
   DENSITY,
   WALL_THICKNESS,
   PHYSICS_FPS,
-} from './gameConfig';
+} from './game-config';
 
 export interface Vector2 {
   x: number;

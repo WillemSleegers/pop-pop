@@ -7,16 +7,16 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Leaderboard } from "@/components/leaderboard"
 import { GameStartScreen } from "@/components/game-start-screen"
 import { PhysicsEngine } from "@/lib/physics"
-import { GameStateManager, GameStatus } from "@/lib/gameState"
+import { GameStateManager, GameStatus } from "@/lib/game-state"
 import { Renderer } from "@/lib/renderer"
-import { InputHandler } from "@/lib/inputHandler"
+import { InputHandler } from "@/lib/input-handler"
 import {
   COLOR_PALETTES,
   ColorPalette,
   BASE_FRUIT_RADII,
   GameMode,
   getDropInterval,
-} from "@/lib/gameConfig"
+} from "@/lib/game-config"
 
 export default function SuikaGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)

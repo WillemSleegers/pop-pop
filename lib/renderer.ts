@@ -2,8 +2,8 @@
 // Handles all drawing operations for the game
 
 import { Circle } from './physics';
-import { Particle } from './gameState';
-import { DANGER_LINE_Y, DROP_ZONE_HEIGHT } from './gameConfig';
+import { Particle } from './game-state';
+import { DANGER_LINE_Y, DROP_ZONE_HEIGHT } from './game-config';
 
 export class Renderer {
   private ctx: CanvasRenderingContext2D;

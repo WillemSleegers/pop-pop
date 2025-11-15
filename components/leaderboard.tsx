@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GameMode } from '@/lib/gameConfig';
+import { GameMode } from '@/lib/game-config';
 
 interface Score {
   player_name: string;

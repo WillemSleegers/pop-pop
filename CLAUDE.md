@@ -10,12 +10,12 @@ Pop Pop is a physics-based merge puzzle game (similar to Suika/Watermelon Game) 
 
 ### Game Loop Architecture
 
-The game uses a **requestAnimationFrame-based game loop** (SuikaGame.tsx:141-180) that orchestrates four independent systems:
+The game uses a **requestAnimationFrame-based game loop** (suika-game.tsx:141-180) that orchestrates four independent systems:
 
 1. **PhysicsEngine** (lib/physics.ts) - Matter.js wrapper running at 60 FPS
-2. **GameStateManager** (lib/gameState.ts) - Authoritative game logic and rules
+2. **GameStateManager** (lib/game-state.ts) - Authoritative game logic and rules
 3. **Renderer** (lib/renderer.ts) - Canvas-based rendering with DPI scaling
-4. **InputHandler** (lib/inputHandler.ts) - Unified mouse/touch event handling
+4. **InputHandler** (lib/input-handler.ts) - Unified mouse/touch event handling
 
 **Critical Flow:**
 
@@ -29,7 +29,7 @@ Input → GameState (logic) → Physics (simulation) → Renderer (visuals)
 
 The codebase uses a **hybrid state management approach**:
 
-- **React State** (SuikaGame.tsx): UI-only state (score, status, powerUps, destroyMode, colorPalette)
+- **React State** (suika-game.tsx): UI-only state (score, status, powerUps, destroyMode, colorPalette)
 - **GameStateManager**: Authoritative game logic independent of React
 - **Physics Engine**: Matter.js maintains physics bodies, synced bidirectionally with game state
 
@@ -37,14 +37,14 @@ State flows ONE direction per frame: GameState → React (never React → GameSt
 
 ### Critical Game Mechanics
 
-**Drop Availability System** (gameState.ts:148-163):
+**Drop Availability System** (game-state.ts:148-163):
 
 - After dropping a circle, `canDrop` flag prevents new drops
 - Only re-enables when the dropped circle clears `DANGER_LINE_Y` (y=80)
 - Preview circle tracks `lastMouseX` to restore position when drop becomes available
 - This prevents spam-dropping and maintains game balance
 
-**Merge Detection** (gameState.ts:165-211):
+**Merge Detection** (game-state.ts:165-211):
 
 - Runs every frame during game loop
 - Uses 5% touch tolerance (`distance <= touchDistance * 1.05`)
@@ -52,7 +52,7 @@ State flows ONE direction per frame: GameState → React (never React → GameSt
 - Creates new circle at midpoint with averaged velocity
 - Sound callback fires **immediately** on merge detection (before physics removal)
 
-**Game Over Logic** (gameState.ts:269-290):
+**Game Over Logic** (game-state.ts:269-290):
 
 - Starts 2-second timer when any circle top edge crosses `DANGER_LINE_Y`
 - Timer resets if all circles clear the line
@@ -66,7 +66,7 @@ State flows ONE direction per frame: GameState → React (never React → GameSt
 
 ### Component Initialization Flow
 
-**SuikaGame.tsx useEffect** (lines 63-138):
+**suika-game.tsx useEffect** (lines 63-138):
 
 1. Waits 100ms for DOM to settle
 2. Gets actual container dimensions (excluding borders)
@@ -109,12 +109,12 @@ Uses **Web Audio API** for low-latency merge sounds:
 - Handles Retina/HiDPI via `devicePixelRatio` scaling
 - Canvas dimensions set to logical size × DPI
 - Draw operations use logical coordinates (renderer scales internally)
-- Color palettes defined in gameConfig.ts (6 options: green, blue, purple, orange, pink, rainbow)
+- Color palettes defined in game-config.ts (6 options: green, blue, purple, orange, pink, rainbow)
 - Palette changes update renderer via `setColors()` without recreation
 
 ### Configuration Constants
 
-All game balance tuning in **lib/gameConfig.ts**:
+All game balance tuning in **lib/game-config.ts**:
 
 - `FRUIT_LEVELS = 11` (levels 0-10)
 - `FRUIT_RADII` array (15px to 135px)
@@ -132,14 +132,22 @@ Uses **next-themes** with system preference detection:
 - ThemeProvider wraps app in layout.tsx
 - ThemeToggle component in header
 
+## Code Style and Conventions
+
+**File Naming:**
+
+- All component files use **kebab-case**: `suika-game.tsx`, `game-start-screen.tsx`, `theme-toggle.tsx`
+- Library files use **kebab-case**: `game-state.ts`, `game-config.ts`, `input-handler.ts`, `physics.ts`, `renderer.ts`
+- React component exports use **PascalCase**: `export function GameStartScreen()` or `export default SuikaGame`
+
 ## Common Implementation Patterns
 
 **Adding New Game Features:**
 
-1. Add configuration to `gameConfig.ts`
+1. Add configuration to `game-config.ts`
 2. Update `GameStateManager` for logic (pure, no React dependencies)
-3. Sync React state in game loop (SuikaGame.tsx:167-170)
-4. Update UI rendering in SuikaGame.tsx return statement
+3. Sync React state in game loop (suika-game.tsx:167-170)
+4. Update UI rendering in suika-game.tsx return statement
 
 **Modifying Physics:**
 
@@ -149,7 +157,7 @@ Uses **next-themes** with system preference detection:
 
 **Audio Changes:**
 
-- Load audio files in first useEffect (SuikaGame.tsx:33-53)
+- Load audio files in first useEffect (suika-game.tsx:33-53)
 - Store buffers in refs for reuse
 - Create new source nodes per playback (buffers are reusable, sources are single-use)
 
@@ -157,9 +165,9 @@ Uses **next-themes** with system preference detection:
 
 - No TypeScript tests configured (no jest/vitest setup)
 - No top wall in physics container (intentional design choice)
-- Power-up award discrepancy: README says every 100 points, code implements every 1000 points (gameState.ts:239-246)
+- Power-up award discrepancy: README says every 100 points, code implements every 1000 points (game-state.ts:239-246)
 - Canvas touch events use `touchAction: 'none'` normally, switches to `'auto'` in destroy mode
-- Input has 200ms cooldown between drops (inputHandler.ts implementation)
+- Input has 200ms cooldown between drops (input-handler.ts implementation)
 
 ## Dependencies
 

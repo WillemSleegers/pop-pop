@@ -20,7 +20,7 @@ import {
   PARTICLE_LIFETIME,
   PARTICLE_SIZE_RATIO,
   GameMode,
-} from './gameConfig';
+} from './game-config';
 
 export type GameStatus = 'ready' | 'playing' | 'gameOver';
 

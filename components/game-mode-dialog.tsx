@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { GameMode } from "@/lib/gameConfig"
+import { GameMode } from "@/lib/game-config"
 import {
   Dialog,
   DialogContent,

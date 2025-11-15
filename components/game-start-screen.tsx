@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { GameMode, ColorPalette, COLOR_PALETTES } from "@/lib/gameConfig"
+import { GameMode, ColorPalette, COLOR_PALETTES } from "@/lib/game-config"
 import { Button } from "@/components/ui/button"
 import { Timer, Flower2 } from "lucide-react"
 

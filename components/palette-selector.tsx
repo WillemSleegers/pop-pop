@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ColorPalette } from "@/lib/gameConfig"
+import { ColorPalette } from "@/lib/game-config"
 
 interface PaletteSelectorProps {
   palette: ColorPalette
