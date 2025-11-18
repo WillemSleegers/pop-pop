@@ -38,6 +38,7 @@ export default function SuikaGame() {
   const physicsRef = useRef<PhysicsEngine | null>(null)
   const gameStateRef = useRef<GameStateManager | null>(null)
   const rendererRef = useRef<Renderer | null>(null)
+  const destroyModeRef = useRef(false)
   const inputHandlerRef = useRef<InputHandler | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -152,7 +153,8 @@ export default function SuikaGame() {
       inputHandlerRef.current.onDrop(() => {
         if (
           gameStateRef.current &&
-          gameStateRef.current.getState().status === "playing"
+          gameStateRef.current.getState().status === "playing" &&
+          !destroyModeRef.current
         ) {
           gameStateRef.current.dropCircle()
           // Reset auto-drop timer in speed mode when manually dropping
@@ -190,6 +192,11 @@ export default function SuikaGame() {
       }
     }
   }, [showStartScreen, colorPalette])
+
+  // Sync destroyMode state with ref for use in callbacks
+  useEffect(() => {
+    destroyModeRef.current = destroyMode
+  }, [destroyMode])
 
   // Game loop
   const startGameLoop = () => {
