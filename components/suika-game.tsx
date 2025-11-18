@@ -8,7 +8,7 @@ import { Leaderboard } from "@/components/leaderboard"
 import { GameStartScreen } from "@/components/game-start-screen"
 import { PhysicsEngine } from "@/lib/physics"
 import { GameStateManager, GameStatus } from "@/lib/game-state"
-import { Renderer } from "@/lib/renderer"
+import { createRenderer, Renderer } from "@/lib/renderer"
 import { InputHandler } from "@/lib/input-handler"
 import {
   COLOR_PALETTES,
@@ -131,7 +131,7 @@ export default function SuikaGame() {
           }
         }
       )
-      rendererRef.current = new Renderer(
+      rendererRef.current = createRenderer(
         canvas,
         width,
         height,
