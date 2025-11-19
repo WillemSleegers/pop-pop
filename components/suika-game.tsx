@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Bomb, RotateCcwIcon, Trophy, Pause, Play } from "lucide-react"
+import { Bomb, RotateCcwIcon, Trophy, Pause, Play, RotateCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -700,6 +700,19 @@ export default function SuikaGame() {
 
       {/* Leaderboard Dialog */}
       <Leaderboard open={showLeaderboard} onOpenChange={setShowLeaderboard} />
+
+      {/* Landscape Orientation Warning (Mobile Only) */}
+      <div className="hidden landscape:flex md:landscape:hidden fixed inset-0 bg-background z-50 items-center justify-center p-8">
+        <div className="text-center space-y-6 max-w-sm">
+          <RotateCw className="w-16 h-16 mx-auto animate-spin-slow" />
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Rotate Your Device</h2>
+            <p className="text-muted-foreground">
+              Please rotate your device to portrait mode for the best gaming experience.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
