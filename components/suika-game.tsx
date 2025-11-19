@@ -1,8 +1,15 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Bomb, RotateCcwIcon, Trophy } from "lucide-react"
+import { Bomb, RotateCcwIcon, Trophy, Pause, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Leaderboard } from "@/components/leaderboard"
 import { GameStartScreen } from "@/components/game-start-screen"
@@ -33,6 +40,7 @@ export default function SuikaGame() {
   const [fruitRadii, setFruitRadii] = useState<number[]>(BASE_FRUIT_RADII)
   const [showStartScreen, setShowStartScreen] = useState(true)
   const [gameMode, setGameMode] = useState<GameMode>("relax")
+  const [showRestartDialog, setShowRestartDialog] = useState(false)
 
   // Game loop refs
   const physicsRef = useRef<PhysicsEngine | null>(null)
@@ -333,11 +341,30 @@ export default function SuikaGame() {
 
   // Restart game
   const handleRestart = () => {
+    setShowRestartDialog(false)
     setShowNameInput(false)
     setPlayerName("")
     stopAutoDropTimer()
     setShowStartScreen(true)
     setStatus("ready")
+  }
+
+  // Toggle pause
+  const handleTogglePause = () => {
+    if (!gameStateRef.current) return
+
+    if (status === "playing") {
+      gameStateRef.current.setStatus("paused")
+      setStatus("paused")
+      stopAutoDropTimer()
+    } else if (status === "paused") {
+      gameStateRef.current.setStatus("playing")
+      setStatus("playing")
+      // Restart auto-drop timer for speed mode
+      if (gameMode === "speed") {
+        startAutoDropTimer()
+      }
+    }
   }
 
   // Submit score
@@ -444,27 +471,41 @@ export default function SuikaGame() {
           </div>
 
           <div className="w-20 flex flex-col gap-2">
-            {/* Restart */}
-            <Button
-              onClick={handleRestart}
-              variant="outline"
-              size="icon"
-              className="border-2 border-border ml-auto"
-              disabled={status !== "playing"}
-            >
-              <RotateCcwIcon />
-            </Button>
+            <div className="flex gap-2">
+              {/* Pause/Resume */}
+              <Button
+                onClick={handleTogglePause}
+                variant="outline"
+                size="icon"
+                className="border-2 border-border flex-1"
+                disabled={status !== "playing" && status !== "paused"}
+              >
+                {status === "paused" ? <Play /> : <Pause />}
+              </Button>
+              {/* Restart */}
+              <Button
+                onClick={() => setShowRestartDialog(true)}
+                variant="outline"
+                size="icon"
+                className="border-2 border-border flex-1"
+                disabled={status !== "playing" && status !== "paused"}
+              >
+                <RotateCcwIcon />
+              </Button>
+            </div>
             {/* Bomb */}
-            <Button
-              onClick={() => powerUps > 0 && setDestroyMode(!destroyMode)}
-              variant={destroyMode ? "default" : "outline"}
-              disabled={powerUps === 0}
-              className={`flex-1 rounded-lg border-2 p-3 ${
-                destroyMode ? "bg-red-600 hover:bg-red-700" : "border-border"
-              }`}
-            >
-              <Bomb className="w-10 h-10" />
-            </Button>
+            <div className="flex-1 rounded-lg border-2 border-input bg-muted/50 flex items-center justify-center">
+              <Button
+                onClick={() => powerUps > 0 && setDestroyMode(!destroyMode)}
+                variant="ghost"
+                disabled={powerUps === 0}
+                className={`w-full h-full ${
+                  destroyMode ? "bg-red-600 hover:bg-red-700 text-white" : ""
+                }`}
+              >
+                <Bomb className="w-10 h-10" />
+              </Button>
+            </div>
           </div>
 
           <div className="w-20 flex flex-col gap-2">
@@ -525,6 +566,20 @@ export default function SuikaGame() {
                   aspectRatio: "2/3",
                 }}
               />
+            </div>
+          )}
+
+          {/* Pause Overlay */}
+          {status === "paused" && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+              <div className="space-y-4 w-3/4 max-w-sm">
+                <div className="bg-muted border-2 border-border rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold">Paused</p>
+                </div>
+                <Button onClick={handleTogglePause} className="w-full" size="lg">
+                  Resume
+                </Button>
+              </div>
             </div>
           )}
 
@@ -619,6 +674,29 @@ export default function SuikaGame() {
           )}
         </div>
       </div>
+
+      {/* Restart Confirmation Dialog */}
+      <Dialog open={showRestartDialog} onOpenChange={setShowRestartDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Restart Game?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to restart? Your current progress will be lost.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowRestartDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleRestart}>
+              Restart
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Leaderboard Dialog */}
       <Leaderboard open={showLeaderboard} onOpenChange={setShowLeaderboard} />

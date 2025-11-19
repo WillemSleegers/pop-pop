@@ -22,7 +22,7 @@ import {
   GameMode,
 } from './game-config';
 
-export type GameStatus = 'ready' | 'playing' | 'gameOver';
+export type GameStatus = 'ready' | 'playing' | 'paused' | 'gameOver';
 
 export interface Particle {
   id: string;
