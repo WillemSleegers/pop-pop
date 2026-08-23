@@ -24,34 +24,42 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (open) {
-      fetchScores();
-    }
+    if (!open) return;
+
+    let cancelled = false;
+
+    const fetchScores = async () => {
+      setLoading(true);
+      try {
+        const [topResponse, weeklyResponse] = await Promise.all([
+          fetch(`/api/scores/top?mode=${gameMode}`),
+          fetch(`/api/scores/weekly?mode=${gameMode}`),
+        ]);
+
+        if (cancelled) return;
+
+        if (topResponse.ok) {
+          const topData = await topResponse.json();
+          if (!cancelled) setTopScores(topData);
+        }
+
+        if (weeklyResponse.ok) {
+          const weeklyData = await weeklyResponse.json();
+          if (!cancelled) setWeeklyScores(weeklyData);
+        }
+      } catch (error) {
+        console.error('Error fetching leaderboard:', error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchScores();
+
+    return () => {
+      cancelled = true;
+    };
   }, [open, gameMode]);
-
-  const fetchScores = async () => {
-    setLoading(true);
-    try {
-      const [topResponse, weeklyResponse] = await Promise.all([
-        fetch(`/api/scores/top?mode=${gameMode}`),
-        fetch(`/api/scores/weekly?mode=${gameMode}`),
-      ]);
-
-      if (topResponse.ok) {
-        const topData = await topResponse.json();
-        setTopScores(topData);
-      }
-
-      if (weeklyResponse.ok) {
-        const weeklyData = await weeklyResponse.json();
-        setWeeklyScores(weeklyData);
-      }
-    } catch (error) {
-      console.error('Error fetching leaderboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const renderScoreList = (scores: Score[]) => {
     if (loading) {

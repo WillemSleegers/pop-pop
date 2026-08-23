@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Bomb, RotateCcwIcon, Trophy, Pause, Play, RotateCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -49,7 +49,7 @@ export default function SuikaGame() {
   const autoDropTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Start auto-drop timer for speed mode with dynamic speed based on score
-  const startAutoDropTimer = () => {
+  const startAutoDropTimer = useCallback(() => {
     if (autoDropTimerRef.current) {
       clearTimeout(autoDropTimerRef.current)
     }
@@ -79,15 +79,15 @@ export default function SuikaGame() {
     }
 
     scheduleNextDrop()
-  }
+  }, [])
 
   // Stop auto-drop timer
-  const stopAutoDropTimer = () => {
+  const stopAutoDropTimer = useCallback(() => {
     if (autoDropTimerRef.current) {
       clearTimeout(autoDropTimerRef.current)
       autoDropTimerRef.current = null
     }
-  }
+  }, [])
 
   // Initialize Web Audio API for low-latency playback
   useEffect(() => {
@@ -121,6 +121,76 @@ export default function SuikaGame() {
       rendererRef.current.setColors(COLOR_PALETTES[colorPalette])
     }
   }, [colorPalette])
+
+  // Game loop
+  const startGameLoop = useCallback(() => {
+    const loop = () => {
+      const physics = physicsRef.current
+      const gameState = gameStateRef.current
+      const renderer = rendererRef.current
+
+      if (!physics || !gameState || !renderer) return
+
+      const state = gameState.getState()
+
+      // Only update physics if playing
+      if (state.status === "playing") {
+        // Update physics
+        physics.update(state.circles)
+
+        // Update drop availability
+        gameState.updateDropAvailability()
+
+        // Check for merges
+        gameState.checkMerges()
+
+        // Update particles
+        gameState.updateParticles()
+
+        // Check for game over
+        if (gameState.checkGameOver()) {
+          setStatus("gameOver")
+          setShowNameInput(true)
+          stopAutoDropTimer()
+        }
+
+        // Update UI state
+        setScore(state.score)
+        setNextLevel(state.upcomingFruitLevel)
+        setPowerUps(state.powerUps)
+      }
+
+      // Render
+      renderer.render(state.circles, state.previewCircle, state.particles)
+
+      animationFrameRef.current = requestAnimationFrame(loop)
+    }
+
+    loop()
+  }, [stopAutoDropTimer])
+
+  // Start the game after initialization completes
+  const startGameAfterInit = useCallback(() => {
+    if (gameStateRef.current) {
+      gameStateRef.current.setGameMode(gameMode)
+      gameStateRef.current.startGame()
+      gameStateRef.current.setStatus("playing")
+      setStatus("playing")
+      setScore(0)
+
+      // Get canvas dimensions for initial preview
+      const canvas = canvasRef.current
+      if (canvas && canvas.parentElement) {
+        const width = canvas.parentElement.clientWidth
+        gameStateRef.current.createPreview(width / 2)
+      }
+
+      // Start auto-drop timer for speed mode
+      if (gameMode === "speed") {
+        startAutoDropTimer()
+      }
+    }
+  }, [gameMode, startAutoDropTimer])
 
   // Initialize game systems when canvas becomes available (after start screen)
   useEffect(() => {
@@ -236,59 +306,12 @@ export default function SuikaGame() {
         clearTimeout(autoDropTimerRef.current)
       }
     }
-  }, [showStartScreen, colorPalette])
+  }, [showStartScreen, colorPalette, startGameLoop, startGameAfterInit, startAutoDropTimer])
 
   // Sync destroyMode state with ref for use in callbacks
   useEffect(() => {
     destroyModeRef.current = destroyMode
   }, [destroyMode])
-
-  // Game loop
-  const startGameLoop = () => {
-    const loop = () => {
-      const physics = physicsRef.current
-      const gameState = gameStateRef.current
-      const renderer = rendererRef.current
-
-      if (!physics || !gameState || !renderer) return
-
-      const state = gameState.getState()
-
-      // Only update physics if playing
-      if (state.status === "playing") {
-        // Update physics
-        physics.update(state.circles)
-
-        // Update drop availability
-        gameState.updateDropAvailability()
-
-        // Check for merges
-        gameState.checkMerges()
-
-        // Update particles
-        gameState.updateParticles()
-
-        // Check for game over
-        if (gameState.checkGameOver()) {
-          setStatus("gameOver")
-          setShowNameInput(true)
-          stopAutoDropTimer()
-        }
-
-        // Update UI state
-        setScore(state.score)
-        setNextLevel(state.upcomingFruitLevel)
-        setPowerUps(state.powerUps)
-      }
-
-      // Render
-      renderer.render(state.circles, state.previewCircle, state.particles)
-
-      animationFrameRef.current = requestAnimationFrame(loop)
-    }
-
-    loop()
-  }
 
   // Handle game start from start screen
   const handleGameStart = (mode: GameMode, palette: ColorPalette) => {
@@ -297,39 +320,6 @@ export default function SuikaGame() {
     setShowStartScreen(false)
     // Game systems will be initialized by useEffect when showStartScreen becomes false
     // Then startGameAfterInit will be called
-  }
-
-  // Start the game after initialization completes
-  const startGameAfterInit = () => {
-    if (gameStateRef.current) {
-      gameStateRef.current.setGameMode(gameMode)
-      gameStateRef.current.startGame()
-      gameStateRef.current.setStatus("playing")
-      setStatus("playing")
-      setScore(0)
-
-      // Get canvas dimensions for initial preview
-      const canvas = canvasRef.current
-      if (canvas && canvas.parentElement) {
-        const width = canvas.parentElement.clientWidth
-        gameStateRef.current.createPreview(width / 2)
-      }
-
-      // Start auto-drop timer for speed mode
-      if (gameMode === "speed") {
-        startAutoDropTimer()
-      }
-    }
-  }
-
-  // Start game
-  const handleStart = () => {
-    if (gameStateRef.current) {
-      gameStateRef.current.startGame()
-      gameStateRef.current.setStatus("playing")
-      setStatus("playing")
-      setScore(0)
-    }
   }
 
   // Restart game
