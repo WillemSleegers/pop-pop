@@ -28,13 +28,13 @@ Pop Pop is a physics-based merging game where you drop colored circles into a co
 First, install dependencies:
 
 ```bash
-npm install
+pnpm install
 ```
 
 Then, run the development server:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to play the game.
@@ -42,8 +42,8 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to play th
 ## Building for Production
 
 ```bash
-npm run build
-npm start
+pnpm build
+pnpm start
 ```
 
 ## How to Play
