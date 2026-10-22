@@ -13,6 +13,8 @@ import {
   POWERUP_POINTS_THRESHOLD,
   MAX_POWERUPS,
   MERGE_TOLERANCE,
+  MERGE_GROW_TIME,
+  CONTAINER_HEIGHT,
   PARTICLE_COUNT,
   PARTICLE_MIN_SPEED,
   PARTICLE_MAX_SPEED,
@@ -108,7 +110,9 @@ export class GameStateManager {
   // Advance game logic by one fixed step (call after each physics step)
   tick(dtMs: number): void {
     this.clock += dtMs;
+    this.removeEscapedCircles();
     this.updateDropAvailability();
+    this.updateGrowth(dtMs);
     this.checkMerges();
     this.updateParticles(dtMs);
     this.updateAutoDrop();
@@ -215,6 +219,27 @@ export class GameStateManager {
     }
   }
 
+  // Remove circles that somehow left the container (they would otherwise fall forever)
+  private removeEscapedCircles(): void {
+    this.state.circles = this.state.circles.filter(
+      (c) =>
+        c.position.x >= -c.radius &&
+        c.position.x <= CONTAINER_WIDTH + c.radius &&
+        c.position.y <= CONTAINER_HEIGHT + c.radius
+    );
+  }
+
+  // Grow merged circles from the merged circles' size to their full size
+  private updateGrowth(dtMs: number): void {
+    for (const circle of this.state.circles) {
+      const targetRadius = FRUIT_RADII[circle.level];
+      if (circle.radius < targetRadius) {
+        const growthPerMs = (targetRadius - FRUIT_RADII[circle.level - 1]) / MERGE_GROW_TIME;
+        circle.radius = Math.min(targetRadius, circle.radius + growthPerMs * dtMs);
+      }
+    }
+  }
+
   // Check for and handle merges
   private checkMerges(): void {
     this.mergeQueue = [];
@@ -267,6 +292,7 @@ export class GameStateManager {
     const newLevel = c1.level + 1;
 
     // Create new merged circle at midpoint
+    // It starts at the merged circles' size and grows in, so neighbours get pushed gently
     const newCircle: Circle = {
       id: `fruit-${this.nextId++}`,
       position: {
@@ -277,7 +303,7 @@ export class GameStateManager {
         x: (c1.velocity.x + c2.velocity.x) / 2,
         y: (c1.velocity.y + c2.velocity.y) / 2,
       },
-      radius: FRUIT_RADII[newLevel],
+      radius: FRUIT_RADII[c1.level],
       level: newLevel,
       merged: false,
       isStatic: false,

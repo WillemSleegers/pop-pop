@@ -12,6 +12,8 @@ import {
   PHYSICS_STEP_MS,
   CONTAINER_WIDTH,
   CONTAINER_HEIGHT,
+  POSITION_ITERATIONS,
+  VELOCITY_ITERATIONS,
 } from './game-config';
 
 export interface Vector2 {
@@ -39,19 +41,22 @@ export class PhysicsEngine {
     // Create Matter.js engine
     this.engine = Matter.Engine.create({
       gravity: { x: 0, y: GRAVITY_Y }, // Gravity pointing down
+      positionIterations: POSITION_ITERATIONS,
+      velocityIterations: VELOCITY_ITERATIONS,
     });
     this.world = this.engine.world;
 
     // Create container walls around the fixed logical world
+    // Side walls extend a full container height above the top so circles kicked upward can't escape
     const width = CONTAINER_WIDTH;
     const height = CONTAINER_HEIGHT;
     const walls = [
       // Bottom
-      Matter.Bodies.rectangle(width / 2, height + WALL_THICKNESS / 2, width, WALL_THICKNESS, { isStatic: true }),
+      Matter.Bodies.rectangle(width / 2, height + WALL_THICKNESS / 2, width + WALL_THICKNESS * 2, WALL_THICKNESS, { isStatic: true }),
       // Left
-      Matter.Bodies.rectangle(-WALL_THICKNESS / 2, height / 2, WALL_THICKNESS, height, { isStatic: true }),
+      Matter.Bodies.rectangle(-WALL_THICKNESS / 2, 0, WALL_THICKNESS, height * 2, { isStatic: true }),
       // Right
-      Matter.Bodies.rectangle(width + WALL_THICKNESS / 2, height / 2, WALL_THICKNESS, height, { isStatic: true }),
+      Matter.Bodies.rectangle(width + WALL_THICKNESS / 2, 0, WALL_THICKNESS, height * 2, { isStatic: true }),
     ];
     Matter.World.add(this.world, walls);
   }
@@ -87,6 +92,10 @@ export class PhysicsEngine {
             isStatic: circle.isStatic,
           }
         );
+        // Carry over initial velocity (e.g. averaged velocity of merged circles)
+        if (!circle.isStatic) {
+          Matter.Body.setVelocity(body, circle.velocity);
+        }
         Matter.World.add(this.world, body);
         this.bodyMap.set(circle.id, body);
       }
@@ -94,6 +103,13 @@ export class PhysicsEngine {
       // Update body properties if circle changed
       if (circle.isStatic !== body.isStatic) {
         Matter.Body.setStatic(body, circle.isStatic);
+      }
+
+      // Scale body if circle radius changed (merged circles grow in); also updates mass
+      const bodyRadius = body.circleRadius ?? circle.radius;
+      if (Math.abs(bodyRadius - circle.radius) > 0.01) {
+        const scale = circle.radius / bodyRadius;
+        Matter.Body.scale(body, scale, scale);
       }
 
       // If circle was moved externally, update body position

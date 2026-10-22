@@ -117,6 +117,8 @@ export const PHYSICS_FPS = 60 // Physics simulation frame rate
 export const PHYSICS_STEP_MS = 1000 / PHYSICS_FPS // Fixed simulation step, independent of display refresh rate
 export const STEP_TOLERANCE_MS = 1 // Frames within this of a full step count as one step (avoids judder from timer jitter)
 export const MAX_FRAME_TIME_MS = 250 // Clamp long frame gaps (tab switches) so the game doesn't fast-forward
+export const POSITION_ITERATIONS = 10 // Collision solver passes (Matter default 6) - higher reduces stack sinking
+export const VELOCITY_ITERATIONS = 8 // Velocity solver passes (Matter default 4) - higher reduces stack jitter
 export const GRAVITY_Y = 1 // Gravity strength (y-axis)
 export const RESTITUTION = 0.1 // Bounciness (0 = no bounce, 1 = perfect bounce)
 export const FRICTION = 0.1 // Surface friction
@@ -124,6 +126,7 @@ export const AIR_RESISTANCE = 0.01 // Air resistance/drag
 export const DENSITY = 0.001 // Circle density
 export const WALL_THICKNESS = 50 // Container wall thickness
 export const MERGE_TOLERANCE = 1.05 // Distance multiplier for merge detection (5% tolerance)
+export const MERGE_GROW_TIME = 120 // Time (ms) for a merged circle to grow from the merged size to full size
 
 // Particle configuration
 export const PARTICLE_COUNT = 10 // Number of particles in explosion
