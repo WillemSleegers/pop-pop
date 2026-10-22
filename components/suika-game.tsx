@@ -17,7 +17,17 @@ import { PhysicsEngine } from "@/lib/physics"
 import { GameStateManager, GameStatus } from "@/lib/game-state"
 import { createRenderer, Renderer } from "@/lib/renderer"
 import { InputHandler } from "@/lib/input-handler"
-import { COLOR_PALETTES, ColorPalette, BASE_FRUIT_RADII, GameMode, getDropInterval } from "@/lib/game-config"
+import {
+  COLOR_PALETTES,
+  ColorPalette,
+  FRUIT_RADII,
+  GameMode,
+  CONTAINER_WIDTH,
+  CONTAINER_HEIGHT,
+  PHYSICS_STEP_MS,
+  STEP_TOLERANCE_MS,
+  MAX_FRAME_TIME_MS,
+} from "@/lib/game-config"
 
 export default function SuikaGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -31,7 +41,6 @@ export default function SuikaGame() {
   const [showNameInput, setShowNameInput] = useState(false)
   const [playerName, setPlayerName] = useState("")
   const [submittingScore, setSubmittingScore] = useState(false)
-  const [fruitRadii, setFruitRadii] = useState<number[]>(BASE_FRUIT_RADII)
   const [showStartScreen, setShowStartScreen] = useState(true)
   const [gameMode, setGameMode] = useState<GameMode>("relax")
   const [showRestartDialog, setShowRestartDialog] = useState(false)
@@ -46,48 +55,6 @@ export default function SuikaGame() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const audioBufferRef = useRef<AudioBuffer | null>(null)
   const nameInputRef = useRef<HTMLInputElement | null>(null)
-  const autoDropTimerRef = useRef<NodeJS.Timeout | null>(null)
-
-  // Start auto-drop timer for speed mode with dynamic speed based on score
-  const startAutoDropTimer = useCallback(() => {
-    if (autoDropTimerRef.current) {
-      clearTimeout(autoDropTimerRef.current)
-    }
-
-    const scheduleNextDrop = () => {
-      if (gameStateRef.current) {
-        const state = gameStateRef.current.getState()
-
-        // Only schedule next drop if still playing
-        if (state.status === "playing") {
-          // Calculate interval based on current score
-          const interval = getDropInterval(state.score)
-
-          autoDropTimerRef.current = setTimeout(() => {
-            if (gameStateRef.current) {
-              const currentState = gameStateRef.current.getState()
-              // Only auto-drop if playing and drop is available
-              if (currentState.status === "playing" && gameStateRef.current.canDropCircle()) {
-                gameStateRef.current.dropCircle()
-              }
-            }
-            // Schedule next drop
-            scheduleNextDrop()
-          }, interval)
-        }
-      }
-    }
-
-    scheduleNextDrop()
-  }, [])
-
-  // Stop auto-drop timer
-  const stopAutoDropTimer = useCallback(() => {
-    if (autoDropTimerRef.current) {
-      clearTimeout(autoDropTimerRef.current)
-      autoDropTimerRef.current = null
-    }
-  }, [])
 
   // Initialize Web Audio API for low-latency playback
   useEffect(() => {
@@ -124,40 +91,47 @@ export default function SuikaGame() {
 
   // Game loop
   const startGameLoop = useCallback(() => {
-    const loop = () => {
+    let lastTime = performance.now()
+    let accumulator = 0
+
+    const loop = (now: number) => {
       const physics = physicsRef.current
       const gameState = gameStateRef.current
       const renderer = rendererRef.current
 
       if (!physics || !gameState || !renderer) return
 
+      // Clamp long gaps (e.g. returning to a background tab) so the game doesn't fast-forward
+      const frameTime = Math.min(now - lastTime, MAX_FRAME_TIME_MS)
+      lastTime = now
+
       const state = gameState.getState()
 
-      // Only update physics if playing
+      // Only advance the simulation if playing
       if (state.status === "playing") {
-        // Update physics
-        physics.update(state.circles)
+        accumulator += frameTime
 
-        // Update drop availability
-        gameState.updateDropAvailability()
+        // Step physics and game logic at a fixed rate, independent of display refresh rate
+        while (accumulator >= PHYSICS_STEP_MS - STEP_TOLERANCE_MS) {
+          physics.update(state.circles)
+          gameState.tick(PHYSICS_STEP_MS)
+          accumulator -= PHYSICS_STEP_MS
 
-        // Check for merges
-        gameState.checkMerges()
-
-        // Update particles
-        gameState.updateParticles()
-
-        // Check for game over
-        if (gameState.checkGameOver()) {
-          setStatus("gameOver")
-          setShowNameInput(true)
-          stopAutoDropTimer()
+          // Check for game over
+          if (gameState.checkGameOver()) {
+            setStatus("gameOver")
+            setShowNameInput(true)
+            accumulator = 0
+            break
+          }
         }
 
         // Update UI state
         setScore(state.score)
         setNextLevel(state.upcomingFruitLevel)
         setPowerUps(state.powerUps)
+      } else {
+        accumulator = 0
       }
 
       // Render
@@ -166,31 +140,19 @@ export default function SuikaGame() {
       animationFrameRef.current = requestAnimationFrame(loop)
     }
 
-    loop()
-  }, [stopAutoDropTimer])
+    animationFrameRef.current = requestAnimationFrame(loop)
+  }, [])
 
   // Start the game after initialization completes
   const startGameAfterInit = useCallback(() => {
     if (gameStateRef.current) {
-      gameStateRef.current.setGameMode(gameMode)
-      gameStateRef.current.startGame()
+      gameStateRef.current.startGame(gameMode)
       gameStateRef.current.setStatus("playing")
       setStatus("playing")
       setScore(0)
-
-      // Get canvas dimensions for initial preview
-      const canvas = canvasRef.current
-      if (canvas && canvas.parentElement) {
-        const width = canvas.parentElement.clientWidth
-        gameStateRef.current.createPreview(width / 2)
-      }
-
-      // Start auto-drop timer for speed mode
-      if (gameMode === "speed") {
-        startAutoDropTimer()
-      }
+      gameStateRef.current.createPreview(CONTAINER_WIDTH / 2)
     }
-  }, [gameMode, startAutoDropTimer])
+  }, [gameMode])
 
   // Initialize game systems when canvas becomes available (after start screen)
   useEffect(() => {
@@ -200,99 +162,74 @@ export default function SuikaGame() {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    // Wait a bit for the DOM to settle, then get dimensions
-    const initializeGame = () => {
-      const container = canvas.parentElement
-      if (!container) return
+    // Game systems use a fixed logical world (CONTAINER_WIDTH x CONTAINER_HEIGHT);
+    // only the renderer knows about the displayed canvas size
+    physicsRef.current = new PhysicsEngine()
+    gameStateRef.current = new GameStateManager(
+      () => {
+        // Play merge sound with Web Audio API for low latency
+        if (audioContextRef.current && audioBufferRef.current) {
+          const source = audioContextRef.current.createBufferSource()
+          source.buffer = audioBufferRef.current
 
-      // Get the actual inner dimensions (excluding borders)
-      const width = container.clientWidth
-      const height = container.clientHeight
+          const gainNode = audioContextRef.current.createGain()
+          gainNode.gain.value = 0.5
 
-      // Create game systems with actual dimensions
-      // Note: Renderer will handle setting canvas dimensions with DPI scaling
-      physicsRef.current = new PhysicsEngine(width, height)
-      gameStateRef.current = new GameStateManager(
-        () => {
-          // Play merge sound with Web Audio API for low latency
-          if (audioContextRef.current && audioBufferRef.current) {
-            const source = audioContextRef.current.createBufferSource()
-            source.buffer = audioBufferRef.current
-
-            const gainNode = audioContextRef.current.createGain()
-            gainNode.gain.value = 0.5
-
-            source.connect(gainNode)
-            gainNode.connect(audioContextRef.current.destination)
-            source.start(0)
-          }
-        },
-        width,
-        height,
-        () => {
-          // Play explosion sound with Web Audio API (lower pitch, louder)
-          if (audioContextRef.current && audioBufferRef.current) {
-            const source = audioContextRef.current.createBufferSource()
-            source.buffer = audioBufferRef.current
-            source.playbackRate.value = 0.7 // Lower pitch for explosion
-
-            const gainNode = audioContextRef.current.createGain()
-            gainNode.gain.value = 0.8 // Louder than merge
-
-            source.connect(gainNode)
-            gainNode.connect(audioContextRef.current.destination)
-            source.start(0)
-          }
+          source.connect(gainNode)
+          gainNode.connect(audioContextRef.current.destination)
+          source.start(0)
         }
-      )
-      rendererRef.current = createRenderer(
-        canvas,
-        width,
-        height,
-        COLOR_PALETTES[colorPalette]
-      )
-      inputHandlerRef.current = new InputHandler(canvas)
+      },
+      () => {
+        // Play explosion sound with Web Audio API (lower pitch, louder)
+        if (audioContextRef.current && audioBufferRef.current) {
+          const source = audioContextRef.current.createBufferSource()
+          source.buffer = audioBufferRef.current
+          source.playbackRate.value = 0.7 // Lower pitch for explosion
 
-      // Setup input handlers
-      inputHandlerRef.current.onMove((x) => {
-        if (
-          gameStateRef.current &&
-          gameStateRef.current.getState().status === "playing"
-        ) {
-          gameStateRef.current.updatePreviewPosition(x)
+          const gainNode = audioContextRef.current.createGain()
+          gainNode.gain.value = 0.8 // Louder than merge
+
+          source.connect(gainNode)
+          gainNode.connect(audioContextRef.current.destination)
+          source.start(0)
         }
-      })
-
-      inputHandlerRef.current.onDrop(() => {
-        if (
-          gameStateRef.current &&
-          gameStateRef.current.getState().status === "playing" &&
-          !destroyModeRef.current
-        ) {
-          gameStateRef.current.dropCircle()
-
-          // Reset auto-drop timer in speed mode when manually dropping
-          const state = gameStateRef.current.getState()
-          if (state.gameMode === 'speed') {
-            startAutoDropTimer()
-          }
-        }
-      })
-
-      // Start render loop
-      startGameLoop()
-
-      // Update radii state for UI rendering
-      if (gameStateRef.current) {
-        setFruitRadii(gameStateRef.current.getRadii())
       }
+    )
+    rendererRef.current = createRenderer(canvas, COLOR_PALETTES[colorPalette])
+    inputHandlerRef.current = new InputHandler(canvas)
 
-      // Start the game after initialization
-      startGameAfterInit()
-    }
+    // Re-scale the renderer when the displayed canvas size changes (resize, rotation)
+    const resizeObserver = new ResizeObserver(() => {
+      rendererRef.current?.resize(canvas.clientWidth)
+    })
+    resizeObserver.observe(canvas)
 
-    // Small delay to ensure layout is complete
-    setTimeout(initializeGame, 100)
+    // Setup input handlers
+    inputHandlerRef.current.onMove((x) => {
+      if (
+        gameStateRef.current &&
+        gameStateRef.current.getState().status === "playing"
+      ) {
+        gameStateRef.current.updatePreviewPosition(x)
+      }
+    })
+
+    inputHandlerRef.current.onDrop(() => {
+      if (
+        gameStateRef.current &&
+        gameStateRef.current.getState().status === "playing" &&
+        !destroyModeRef.current
+      ) {
+        gameStateRef.current.dropCircle()
+      }
+    })
+
+    // Start render loop
+    startGameLoop()
+
+    // Start the game after initialization
+    startGameAfterInit()
 
     // Cleanup
     return () => {
@@ -302,11 +239,9 @@ export default function SuikaGame() {
       if (inputHandlerRef.current) {
         inputHandlerRef.current.destroy()
       }
-      if (autoDropTimerRef.current) {
-        clearTimeout(autoDropTimerRef.current)
-      }
+      resizeObserver.disconnect()
     }
-  }, [showStartScreen, colorPalette, startGameLoop, startGameAfterInit, startAutoDropTimer])
+  }, [showStartScreen, colorPalette, startGameLoop, startGameAfterInit])
 
   // Sync destroyMode state with ref for use in callbacks
   useEffect(() => {
@@ -327,26 +262,20 @@ export default function SuikaGame() {
     setShowRestartDialog(false)
     setShowNameInput(false)
     setPlayerName("")
-    stopAutoDropTimer()
     setShowStartScreen(true)
     setStatus("ready")
   }
 
-  // Toggle pause
+  // Toggle pause (the game clock stops while paused, so timers resume where they left off)
   const handleTogglePause = () => {
     if (!gameStateRef.current) return
 
     if (status === "playing") {
       gameStateRef.current.setStatus("paused")
       setStatus("paused")
-      stopAutoDropTimer()
     } else if (status === "paused") {
       gameStateRef.current.setStatus("playing")
       setStatus("playing")
-      // Restart auto-drop timer for speed mode
-      if (gameMode === "speed") {
-        startAutoDropTimer()
-      }
     }
   }
 
@@ -391,17 +320,10 @@ export default function SuikaGame() {
     const canvas = canvasRef.current
     if (!canvas) return
 
+    // Convert screen coordinates to logical world coordinates
     const rect = canvas.getBoundingClientRect()
-    // Use the parent container dimensions (the actual rendered size)
-    const container = canvas.parentElement
-    if (!container) return
-
-    const containerRect = container.getBoundingClientRect()
-    const logicalWidth = containerRect.width
-    const logicalHeight = containerRect.height
-
-    const x = ((clientX - rect.left) / rect.width) * logicalWidth
-    const y = ((clientY - rect.top) / rect.height) * logicalHeight
+    const x = ((clientX - rect.left) / rect.width) * CONTAINER_WIDTH
+    const y = ((clientY - rect.top) / rect.height) * CONTAINER_HEIGHT
 
     const state = gameStateRef.current.getState()
 
@@ -514,8 +436,8 @@ export default function SuikaGame() {
                 className="rounded-full"
                 style={{
                   backgroundColor: COLOR_PALETTES[colorPalette][nextLevel],
-                  width: `${fruitRadii[nextLevel] * 1.2}px`,
-                  height: `${fruitRadii[nextLevel] * 1.2}px`,
+                  width: `${FRUIT_RADII[nextLevel] * 1.2}px`,
+                  height: `${FRUIT_RADII[nextLevel] * 1.2}px`,
                 }}
               />
             </div>

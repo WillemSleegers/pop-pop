@@ -9,7 +9,9 @@ import {
   AIR_RESISTANCE,
   DENSITY,
   WALL_THICKNESS,
-  PHYSICS_FPS,
+  PHYSICS_STEP_MS,
+  CONTAINER_WIDTH,
+  CONTAINER_HEIGHT,
 } from './game-config';
 
 export interface Vector2 {
@@ -33,17 +35,16 @@ export class PhysicsEngine {
   private world: Matter.World;
   private bodyMap: Map<string, Matter.Body> = new Map(); // Map circle IDs to Matter bodies
 
-  constructor(
-    private width: number,
-    private height: number
-  ) {
+  constructor() {
     // Create Matter.js engine
     this.engine = Matter.Engine.create({
       gravity: { x: 0, y: GRAVITY_Y }, // Gravity pointing down
     });
     this.world = this.engine.world;
 
-    // Create container walls
+    // Create container walls around the fixed logical world
+    const width = CONTAINER_WIDTH;
+    const height = CONTAINER_HEIGHT;
     const walls = [
       // Bottom
       Matter.Bodies.rectangle(width / 2, height + WALL_THICKNESS / 2, width, WALL_THICKNESS, { isStatic: true }),
@@ -55,13 +56,13 @@ export class PhysicsEngine {
     Matter.World.add(this.world, walls);
   }
 
-  // Update all circles with physics
+  // Advance all circles by one fixed physics step
   update(circles: Circle[]): void {
     // Sync circles to Matter.js bodies
     this.syncToPhysics(circles);
 
     // Step the physics simulation
-    Matter.Engine.update(this.engine, 1000 / PHYSICS_FPS);
+    Matter.Engine.update(this.engine, PHYSICS_STEP_MS);
 
     // Sync back from Matter.js to circles
     this.syncFromPhysics(circles);
@@ -130,12 +131,5 @@ export class PhysicsEngine {
     const dy = c2.position.y - c1.position.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     return distance <= (c1.radius + c2.radius) * 1.02; // 2% tolerance
-  }
-
-  // Update dimensions if container resizes
-  updateDimensions(width: number, height: number): void {
-    this.width = width;
-    this.height = height;
-    // Note: Walls would need to be recreated for this to take effect
   }
 }

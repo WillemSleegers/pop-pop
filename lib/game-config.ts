@@ -2,21 +2,8 @@
 
 export const FRUIT_LEVELS = 11
 
-// Base radius for each fruit level at reference width (in pixels)
-// These will be scaled proportionally based on actual canvas width
-export const BASE_FRUIT_RADII = [15, 20, 25, 32, 40, 50, 62, 75, 90, 110, 135]
-
-// Reference width for base radii (400px - the default canvas width)
-export const REFERENCE_WIDTH = 400
-
-// Calculate scaled radii based on actual canvas width
-export function getScaledRadii(canvasWidth: number): number[] {
-  const scale = canvasWidth / REFERENCE_WIDTH
-  return BASE_FRUIT_RADII.map((radius) => radius * scale)
-}
-
-// Export FRUIT_RADII for backwards compatibility (same as BASE_FRUIT_RADII)
-export const FRUIT_RADII = BASE_FRUIT_RADII
+// Radius for each fruit level (in logical world units)
+export const FRUIT_RADII = [15, 20, 25, 32, 40, 50, 62, 75, 90, 110, 135]
 
 // Color palettes - designed to maximize distinction between adjacent levels
 export const COLOR_PALETTES = {
@@ -108,7 +95,8 @@ export const FRUIT_COLORS = COLOR_PALETTES.green
 // Points awarded for each merge
 export const MERGE_POINTS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 
-// Game container dimensions
+// Logical game world dimensions - all game systems use these units,
+// the renderer scales the world to the displayed canvas size
 export const CONTAINER_WIDTH = 400
 export const CONTAINER_HEIGHT = 600
 
@@ -126,6 +114,9 @@ export const MAX_POWERUPS = 1 // Maximum number of bombs that can be stored
 
 // Physics configuration
 export const PHYSICS_FPS = 60 // Physics simulation frame rate
+export const PHYSICS_STEP_MS = 1000 / PHYSICS_FPS // Fixed simulation step, independent of display refresh rate
+export const STEP_TOLERANCE_MS = 1 // Frames within this of a full step count as one step (avoids judder from timer jitter)
+export const MAX_FRAME_TIME_MS = 250 // Clamp long frame gaps (tab switches) so the game doesn't fast-forward
 export const GRAVITY_Y = 1 // Gravity strength (y-axis)
 export const RESTITUTION = 0.1 // Bounciness (0 = no bounce, 1 = perfect bounce)
 export const FRICTION = 0.1 // Surface friction

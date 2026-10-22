@@ -3,7 +3,7 @@
 
 import { Circle } from './physics';
 import { Particle } from './game-state';
-import { DROP_ZONE_HEIGHT } from './game-config';
+import { CONTAINER_HEIGHT, CONTAINER_WIDTH, DROP_ZONE_HEIGHT } from './game-config';
 
 // Draw the drop zone underlay (background above danger line)
 const drawDropZoneUnderlay = (
@@ -67,20 +67,18 @@ const clear = (
   ctx.clearRect(0, 0, width, height);
 };
 
-// Render the entire game state
+// Render the entire game state (in logical world coordinates)
 const render = (
   ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
   colors: string[],
   circles: Circle[],
   previewCircle: Circle | null,
   particles: Particle[] = []
 ): void => {
-  clear(ctx, width, height);
+  clear(ctx, CONTAINER_WIDTH, CONTAINER_HEIGHT);
 
   // Draw drop zone underlay first (background layer)
-  drawDropZoneUnderlay(ctx, width);
+  drawDropZoneUnderlay(ctx, CONTAINER_WIDTH);
 
   // Draw all circles on top of underlay
   circles.forEach(circle => drawCircle(ctx, circle, colors));
@@ -94,41 +92,18 @@ const render = (
   }
 };
 
-// Initialize canvas with proper DPI scaling
-const initializeCanvas = (
-  canvas: HTMLCanvasElement,
-  width: number,
-  height: number
-): CanvasRenderingContext2D => {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    throw new Error('Could not get canvas context');
-  }
-
-  // Support high DPI displays (retina)
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  canvas.style.width = `${width}px`;
-  canvas.style.height = `${height}px`;
-  ctx.scale(dpr, dpr);
-
-  return ctx;
-};
-
-// Update canvas dimensions
-const updateCanvasDimensions = (
+// Size the canvas backing store to its displayed size (with DPI scaling)
+// and scale the logical world to fill it. CSS controls the displayed size.
+const resizeCanvas = (
   ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number
+  displayWidth: number
 ): void => {
   const canvas = ctx.canvas;
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  canvas.style.width = `${width}px`;
-  canvas.style.height = `${height}px`;
-  ctx.scale(dpr, dpr);
+  const scale = (displayWidth * dpr) / CONTAINER_WIDTH;
+  canvas.width = Math.round(CONTAINER_WIDTH * scale);
+  canvas.height = Math.round(CONTAINER_HEIGHT * scale);
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
 };
 
 // Create a renderer (factory function)
@@ -139,35 +114,31 @@ export interface Renderer {
     particles?: Particle[]
   ) => void;
   setColors: (colors: string[]) => void;
-  updateDimensions: (width: number, height: number) => void;
+  resize: (displayWidth: number) => void;
   clear: () => void;
 }
 
 export const createRenderer = (
   canvas: HTMLCanvasElement,
-  initialWidth: number,
-  initialHeight: number,
   initialColors: string[]
 ): Renderer => {
-  const ctx = initializeCanvas(canvas, initialWidth, initialHeight);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Could not get canvas context');
+  }
+  resizeCanvas(ctx, canvas.clientWidth);
   let colors = initialColors;
-  let width = initialWidth;
-  let height = initialHeight;
 
   return {
     render: (circles, previewCircle, particles = []) =>
-      render(ctx, width, height, colors, circles, previewCircle, particles),
+      render(ctx, colors, circles, previewCircle, particles),
 
     setColors: (newColors) => {
       colors = newColors;
     },
 
-    updateDimensions: (newWidth, newHeight) => {
-      width = newWidth;
-      height = newHeight;
-      updateCanvasDimensions(ctx, newWidth, newHeight);
-    },
+    resize: (displayWidth) => resizeCanvas(ctx, displayWidth),
 
-    clear: () => clear(ctx, width, height),
+    clear: () => clear(ctx, CONTAINER_WIDTH, CONTAINER_HEIGHT),
   };
 };

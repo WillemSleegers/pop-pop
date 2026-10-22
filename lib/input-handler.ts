@@ -1,6 +1,8 @@
 // Input handling for mouse and touch events
 // Manages user interactions with the game canvas
 
+import { CONTAINER_WIDTH } from './game-config';
+
 export type InputCallback = (x: number) => void;
 export type DropCallback = () => void;
 
@@ -41,13 +43,10 @@ export class InputHandler {
     this.canvas.addEventListener('touchcancel', this.handleTouchCancel, { passive: false });
   }
 
-  // Get X coordinate relative to canvas (in logical pixels, not physical)
+  // Get X coordinate in logical world units (independent of displayed canvas size)
   private getCanvasX(clientX: number): number {
     const rect = this.canvas.getBoundingClientRect();
-    // Use the CSS width, not the physical canvas width (which is scaled for retina)
-    const logicalWidth = parseFloat(this.canvas.style.width) || rect.width;
-    const scaleX = logicalWidth / rect.width;
-    return (clientX - rect.left) * scaleX;
+    return ((clientX - rect.left) / rect.width) * CONTAINER_WIDTH;
   }
 
   // Mouse event handlers
