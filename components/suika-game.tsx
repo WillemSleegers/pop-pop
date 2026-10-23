@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
 import { Bomb, RotateCcwIcon, Trophy, Pause, Play, RotateCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -82,6 +82,15 @@ export default function SuikaGame() {
     }
   }, [])
 
+  // Browsers keep an AudioContext suspended until a user gesture (Safari can also
+  // interrupt it later), so resume it from gesture handlers
+  const resumeAudio = useCallback(() => {
+    const audioContext = audioContextRef.current
+    if (audioContext && audioContext.state !== "running" && audioContext.state !== "closed") {
+      audioContext.resume().catch((err) => console.error("Error resuming audio:", err))
+    }
+  }, [])
+
   // Update renderer colors when palette changes
   useEffect(() => {
     if (rendererRef.current) {
@@ -143,8 +152,12 @@ export default function SuikaGame() {
     animationFrameRef.current = requestAnimationFrame(loop)
   }, [])
 
+  // Effect events read the latest mode/palette without making them init effect
+  // dependencies (changing them must not rebuild a running game)
+  const getInitialColors = useEffectEvent(() => COLOR_PALETTES[colorPalette])
+
   // Start the game after initialization completes
-  const startGameAfterInit = useCallback(() => {
+  const startGameAfterInit = useEffectEvent(() => {
     if (gameStateRef.current) {
       gameStateRef.current.startGame(gameMode)
       gameStateRef.current.setStatus("playing")
@@ -152,7 +165,7 @@ export default function SuikaGame() {
       setScore(0)
       gameStateRef.current.createPreview(CONTAINER_WIDTH / 2)
     }
-  }, [gameMode])
+  })
 
   // Initialize game systems when canvas becomes available (after start screen)
   useEffect(() => {
@@ -196,7 +209,7 @@ export default function SuikaGame() {
         }
       }
     )
-    rendererRef.current = createRenderer(canvas, COLOR_PALETTES[colorPalette])
+    rendererRef.current = createRenderer(canvas, getInitialColors())
     inputHandlerRef.current = new InputHandler(canvas)
 
     // Re-scale the renderer when the displayed canvas size changes (resize, rotation)
@@ -221,6 +234,7 @@ export default function SuikaGame() {
         gameStateRef.current.getState().status === "playing" &&
         !destroyModeRef.current
       ) {
+        resumeAudio()
         gameStateRef.current.dropCircle()
       }
     })
@@ -241,7 +255,7 @@ export default function SuikaGame() {
       }
       resizeObserver.disconnect()
     }
-  }, [showStartScreen, colorPalette, startGameLoop, startGameAfterInit])
+  }, [showStartScreen, startGameLoop, resumeAudio])
 
   // Sync destroyMode state with ref for use in callbacks
   useEffect(() => {
@@ -250,6 +264,7 @@ export default function SuikaGame() {
 
   // Handle game start from start screen
   const handleGameStart = (mode: GameMode, palette: ColorPalette) => {
+    resumeAudio()
     setGameMode(mode)
     setColorPalette(palette)
     setShowStartScreen(false)
@@ -340,7 +355,7 @@ export default function SuikaGame() {
         // Destroy this circle
         if (gameStateRef.current.destroyCircle(circle.id, color)) {
           setDestroyMode(false)
-          setPowerUps(0)
+          setPowerUps(gameStateRef.current.getState().powerUps)
         }
         break
       }

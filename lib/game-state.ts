@@ -47,7 +47,6 @@ export interface GameState {
   previewCircle: Circle | null;
   highestLevel: number;
   powerUps: number; // Available destroy power-ups
-  lastPowerUpScore: number; // Last score milestone where power-up was awarded
   gameMode: GameMode; // Current game mode
 }
 
@@ -58,7 +57,7 @@ export class GameStateManager {
   private dangerTimer: number | null = null; // Game clock time when circles crossed the danger line
   private nextAutoDropAt: number | null = null; // Game clock time of next speed mode auto-drop
   private mergeQueue: Array<{ c1: Circle; c2: Circle }> = [];
-  private canDrop = true; // Track if we can drop a new circle
+  private droppedCircleId: string | null = null; // Dropped circle that must clear the danger line before the next drop
   private onMergeCallback?: () => void;
   private onExplosionCallback?: () => void;
   private lastMouseX: number = CONTAINER_WIDTH / 2; // Track last mouse position
@@ -80,7 +79,6 @@ export class GameStateManager {
       previewCircle: null,
       highestLevel: 0,
       powerUps: 0,
-      lastPowerUpScore: 0,
       gameMode,
     };
   }
@@ -103,7 +101,7 @@ export class GameStateManager {
     this.dangerTimer = null;
     this.nextAutoDropAt = null;
     this.mergeQueue = [];
-    this.canDrop = true;
+    this.droppedCircleId = null;
     this.scheduleAutoDrop();
   }
 
@@ -144,7 +142,7 @@ export class GameStateManager {
 
     if (!this.state.previewCircle) {
       // Only create preview if we're allowed to drop
-      if (this.canDrop) {
+      if (this.droppedCircleId === null) {
         this.createPreview(x);
       }
       return;
@@ -157,7 +155,7 @@ export class GameStateManager {
 
   // Drop the current preview circle
   dropCircle(): Circle | null {
-    if (!this.state.previewCircle || this.state.status !== 'playing' || !this.canDrop) {
+    if (!this.state.previewCircle || this.state.status !== 'playing' || this.droppedCircleId !== null) {
       return null;
     }
 
@@ -177,7 +175,7 @@ export class GameStateManager {
     this.state.previewCircle = null;
 
     // Prevent dropping until this circle clears the danger line
-    this.canDrop = false;
+    this.droppedCircleId = newCircle.id;
 
     // Any drop (manual or automatic) resets the speed mode countdown
     this.scheduleAutoDrop();
@@ -202,19 +200,19 @@ export class GameStateManager {
     }
   }
 
-  // Update drop availability based on last dropped circle position
+  // Update drop availability based on the dropped circle's position
   private updateDropAvailability(): void {
-    if (!this.canDrop && this.state.circles.length > 0) {
-      // Get the most recently added circle (last in array)
-      const lastCircle = this.state.circles[this.state.circles.length - 1];
+    if (this.droppedCircleId === null) return;
 
-      // Check if it has passed below the danger line
-      if (lastCircle.position.y - lastCircle.radius > DANGER_LINE_Y) {
-        this.canDrop = true;
-        // Create preview circle at last known mouse position when dropping becomes available
-        if (!this.state.previewCircle) {
-          this.createPreview(this.lastMouseX);
-        }
+    const dropped = this.state.circles.find((c) => c.id === this.droppedCircleId);
+
+    // Re-enable dropping once the dropped circle clears the danger line,
+    // or if it no longer exists (merged, destroyed or escaped)
+    if (!dropped || dropped.position.y - dropped.radius > DANGER_LINE_Y) {
+      this.droppedCircleId = null;
+      // Create preview circle at last known mouse position when dropping becomes available
+      if (!this.state.previewCircle) {
+        this.createPreview(this.lastMouseX);
       }
     }
   }
@@ -312,15 +310,16 @@ export class GameStateManager {
     this.state.circles.push(newCircle);
 
     // Update score
+    const previousScore = this.state.score;
     this.state.score += MERGE_POINTS[c1.level];
 
-    // Check if we should award a power-up
-    const currentMilestone = Math.floor(this.state.score / POWERUP_POINTS_THRESHOLD);
-    const lastMilestone = Math.floor(this.state.lastPowerUpScore / POWERUP_POINTS_THRESHOLD);
+    // Award a power-up for each milestone crossed; milestones crossed while full are forfeited
+    const milestonesCrossed =
+      Math.floor(this.state.score / POWERUP_POINTS_THRESHOLD) -
+      Math.floor(previousScore / POWERUP_POINTS_THRESHOLD);
 
-    if (currentMilestone > lastMilestone && this.state.powerUps < MAX_POWERUPS) {
-      this.state.powerUps = Math.min(this.state.powerUps + 1, MAX_POWERUPS);
-      this.state.lastPowerUpScore = this.state.score;
+    if (milestonesCrossed > 0) {
+      this.state.powerUps = Math.min(this.state.powerUps + milestonesCrossed, MAX_POWERUPS);
     }
 
     // Update highest level achieved

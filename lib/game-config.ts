@@ -14,7 +14,7 @@ export const COLOR_PALETTES = {
     "#166534", // Level 3 - Green 800 (very dark)
     "#22C55E", // Level 4 - Green 500 (medium)
     "#14532D", // Level 5 - Green 900 (darkest)
-    "#86EFAC", // Level 6 - Light green (restart lighter)
+    "#BEF264", // Level 6 - Lime 300 (light)
     "#059669", // Level 7 - Emerald 600 (medium-dark)
     "#6EE7B7", // Level 8 - Emerald 300 (light)
     "#047857", // Level 9 - Emerald 700 (dark)
@@ -65,7 +65,7 @@ export const COLOR_PALETTES = {
     "#F472B6", // Level 2 - Pink 400 (medium-light)
     "#831843", // Level 3 - Pink 900 (very dark)
     "#EC4899", // Level 4 - Pink 500 (medium)
-    "#9F1239", // Level 5 - Pink 800 (darker)
+    "#A21CAF", // Level 5 - Fuchsia 700 (darker)
     "#F9A8D4", // Level 6 - Pink 300 (light)
     "#9F1239", // Level 7 - Rose 800 (dark)
     "#FECDD3", // Level 8 - Rose 200 (very light)
@@ -82,8 +82,8 @@ export const COLOR_PALETTES = {
     "#34D399", // Level 6 - Emerald 400 (light green)
     "#DC2626", // Level 7 - Red 600 (bright red)
     "#7DD3FC", // Level 8 - Sky 300 (sky blue)
-    "#C2410C", // Level 9 - Orange 700 (dark orange)
-    "#A78BFA", // Level 10 - Violet 400 (medium purple)
+    "#1D4ED8", // Level 9 - Blue 700 (dark blue)
+    "#EC4899", // Level 10 - Pink 500 (bright pink)
   ],
 }
 
