@@ -45,7 +45,6 @@ export interface GameState {
   nextFruitLevel: number; // Level for current preview circle
   upcomingFruitLevel: number; // Level for the circle after next (shown in UI)
   previewCircle: Circle | null;
-  highestLevel: number;
   powerUps: number; // Available destroy power-ups
   gameMode: GameMode; // Current game mode
 }
@@ -77,7 +76,6 @@ export class GameStateManager {
       nextFruitLevel: this.randomStartingLevel(),
       upcomingFruitLevel: this.randomStartingLevel(),
       previewCircle: null,
-      highestLevel: 0,
       powerUps: 0,
       gameMode,
     };
@@ -321,11 +319,6 @@ export class GameStateManager {
     if (milestonesCrossed > 0) {
       this.state.powerUps = Math.min(this.state.powerUps + milestonesCrossed, MAX_POWERUPS);
     }
-
-    // Update highest level achieved
-    if (newLevel > this.state.highestLevel) {
-      this.state.highestLevel = newLevel;
-    }
   }
 
   // Create explosion particles
@@ -416,19 +409,8 @@ export class GameStateManager {
     return false;
   }
 
-  // Check if circles are in danger zone
-  isInDanger(): boolean {
-    return this.dangerTimer !== null;
-  }
-
   // Set game status
   setStatus(status: GameStatus): void {
     this.state.status = status;
   }
-
-  // Update circles array (called after physics update)
-  updateCircles(circles: Circle[]): void {
-    this.state.circles = circles;
-  }
-
 }

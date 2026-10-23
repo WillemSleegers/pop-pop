@@ -89,9 +89,6 @@ export const COLOR_PALETTES = {
 
 export type ColorPalette = keyof typeof COLOR_PALETTES
 
-// Default color palette
-export const FRUIT_COLORS = COLOR_PALETTES.green
-
 // Points awarded for each merge
 export const MERGE_POINTS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 

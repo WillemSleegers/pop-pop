@@ -140,12 +140,4 @@ export class PhysicsEngine {
       }
     }
   }
-
-  // Check if two circles are touching (for merge detection)
-  areTouching(c1: Circle, c2: Circle): boolean {
-    const dx = c2.position.x - c1.position.x;
-    const dy = c2.position.y - c1.position.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance <= (c1.radius + c2.radius) * 1.02; // 2% tolerance
-  }
 }

@@ -115,7 +115,6 @@ export interface Renderer {
   ) => void;
   setColors: (colors: string[]) => void;
   resize: (displayWidth: number) => void;
-  clear: () => void;
 }
 
 export const createRenderer = (
@@ -138,7 +137,5 @@ export const createRenderer = (
     },
 
     resize: (displayWidth) => resizeCanvas(ctx, displayWidth),
-
-    clear: () => clear(ctx, CONTAINER_WIDTH, CONTAINER_HEIGHT),
   };
 };
