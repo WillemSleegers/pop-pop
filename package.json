@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:setup": "tsx scripts/setup-database.ts",
-    "generate-icons": "node scripts/generate-icons.mjs"
+    "generate-icons": "node scripts/generate-icons.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0",
@@ -27,7 +28,6 @@
     "tailwind-merge": "^3.3"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/matter-js": "^0",
     "@types/node": "^26.2.0",
@@ -39,6 +39,7 @@
     "tailwindcss": "^4",
     "tsx": "^4",
     "tw-animate-css": "^1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
   }
 }

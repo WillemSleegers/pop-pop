@@ -8,36 +8,53 @@ Pop Pop is a physics-based merging game where you drop colored circles into a co
 
 ## Features
 
-- **Physics-Based Gameplay**: Realistic circle physics powered by Matter.js
+- **Physics-Based Gameplay**: Realistic circle physics powered by Matter.js, running at a fixed 60 Hz on every display
 - **Progressive Merging**: 11 levels of circles to unlock by merging
-- **Power-Up System**: Earn bomb power-ups every 100 points to destroy circles
-- **Dark/Light Theme**: Built-in theme toggle for comfortable playing
-- **Responsive Design**: Works on both desktop and mobile devices
-- **Smooth Animations**: 60 FPS gameplay with optimized rendering
+- **Two Game Modes**: Relax (drop at your own pace) and Speed (circles auto-drop faster as you score)
+- **Power-Up System**: Earn a bomb every 1000 points to destroy a single circle
+- **Leaderboards**: Weekly and all-time top scores per game mode
+- **Color Palettes & Themes**: Six palettes plus dark/light theme
+- **Responsive Design**: Same gameplay on desktop and mobile; the playfield scales to your screen
 
 ## Tech Stack
 
-- **Framework**: Next.js 15.5.6 with App Router
-- **Physics Engine**: Matter.js for realistic 2D physics
+- **Framework**: Next.js 16 with App Router, React 19
+- **Physics Engine**: Matter.js
+- **Database**: Neon Postgres (leaderboard)
 - **Styling**: Tailwind CSS with shadcn/ui components
 - **Theme Management**: next-themes for dark/light mode
+- **Testing**: Vitest
 - **Language**: TypeScript
 
 ## Getting Started
 
-First, install dependencies:
+Install dependencies:
 
 ```bash
 pnpm install
 ```
 
-Then, run the development server:
+For the leaderboard, add a Neon connection string as `DATABASE_URL` in `.env.local`, then create the table:
+
+```bash
+pnpm db:setup
+```
+
+Run the development server:
 
 ```bash
 pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to play the game.
+
+## Testing
+
+```bash
+pnpm test
+```
+
+Runs unit tests for the game logic and headless Matter.js simulations.
 
 ## Building for Production
 
@@ -48,28 +65,32 @@ pnpm start
 
 ## How to Play
 
-1. Move your mouse (or finger on mobile) to position the preview circle
-2. Click (or tap) to drop the circle into the container
-3. Match circles of the same color/level to merge them
-4. Earn points with each merge - higher level merges give more points
-5. Earn a bomb power-up every 100 points to destroy a single circle
-6. Avoid letting circles stay above the danger line for too long or it's game over!
+1. Choose a game mode and color palette, then press Start Game
+2. Move your mouse (or finger on mobile) to position the preview circle
+3. Click (or tap) to drop the circle into the container
+4. Match circles of the same color/level to merge them
+5. Earn points with each merge - higher level merges give more points
+6. Earn a bomb power-up every 1000 points to destroy a single circle
+7. Avoid letting circles stay above the danger line for too long or it's game over!
 
 ## Project Structure
 
-```
-├── app/                  # Next.js app directory
-├── components/          # React components
-│   ├── SuikaGame.tsx   # Main game component
-│   └── ui/             # shadcn/ui components
-├── lib/                # Game logic and utilities
-│   ├── physics.ts      # Matter.js physics engine wrapper
-│   ├── gameState.ts    # Game state management
-│   ├── renderer.ts     # Canvas rendering
-│   ├── inputHandler.ts # Mouse/touch input handling
-│   └── gameConfig.ts   # Game constants and configuration
-└── assets/             # Game assets
-    └── sounds/         # Sound effects
+```text
+├── app/                     # Next.js app directory
+│   └── api/scores/          # Leaderboard API routes
+├── components/              # React components
+│   ├── suika-game.tsx       # Main game component (game loop, UI)
+│   └── ui/                  # shadcn/ui components
+├── lib/                     # Game logic and utilities
+│   ├── physics.ts           # Matter.js physics engine wrapper
+│   ├── game-state.ts        # Game state management and rules
+│   ├── renderer.ts          # Canvas rendering
+│   ├── input-handler.ts     # Mouse/touch input handling
+│   ├── game-config.ts       # Game constants and configuration
+│   ├── db.ts                # Neon database client
+│   └── leaderboard.ts       # Shared leaderboard queries and validation
+├── scripts/                 # Database setup and icon generation
+└── public/assets/sounds/    # Sound effects
 ```
 
 ## License

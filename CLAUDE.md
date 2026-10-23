@@ -4,124 +4,144 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Pop Pop is a physics-based merge puzzle game (similar to Suika/Watermelon Game) built with Next.js 15 and Matter.js. Players drop colored circles that merge when matching circles collide, scoring points and creating progressively larger circles.
+Pop Pop is a physics-based merge puzzle game (similar to Suika/Watermelon Game) built with Next.js 16, React 19 and Matter.js. Players drop colored circles that merge when matching circles collide, scoring points and creating progressively larger circles. Scores are saved to a Neon Postgres leaderboard.
+
+## Commands
+
+- `pnpm dev` - Dev server (Turbopack)
+- `pnpm build` / `pnpm start` - Production build and server
+- `pnpm lint` - ESLint
+- `pnpm test` - Vitest (game logic + headless physics tests)
+- `pnpm exec tsc --noEmit -p .` - Type-check
+- `pnpm db:setup` - Create the `scores` table (needs `DATABASE_URL` in `.env.local`)
 
 ## Architecture Overview
 
 ### Game Loop Architecture
 
-The game uses a **requestAnimationFrame-based game loop** (suika-game.tsx:141-180) that orchestrates four independent systems:
+The game uses a **requestAnimationFrame loop with a fixed-timestep accumulator** (`startGameLoop` in suika-game.tsx). Each frame adds the elapsed time (clamped to `MAX_FRAME_TIME_MS`) to an accumulator, then runs fixed `PHYSICS_STEP_MS` (60 Hz) steps until it is drained. Game speed is therefore independent of display refresh rate (60/120/144 Hz).
 
-1. **PhysicsEngine** (lib/physics.ts) - Matter.js wrapper running at 60 FPS
-2. **GameStateManager** (lib/game-state.ts) - Authoritative game logic and rules
-3. **Renderer** (lib/renderer.ts) - Canvas-based rendering with DPI scaling
-4. **InputHandler** (lib/input-handler.ts) - Unified mouse/touch event handling
+Four independent systems:
 
-**Critical Flow:**
+1. **PhysicsEngine** (lib/physics.ts) - Matter.js wrapper, one fixed step per `update()`
+2. **GameStateManager** (lib/game-state.ts) - Authoritative game logic and rules, advanced by `tick(dtMs)`
+3. **Renderer** (lib/renderer.ts) - Canvas rendering, scales the logical world to the displayed canvas
+4. **InputHandler** (lib/input-handler.ts) - Unified mouse/touch handling, converts to world coordinates
 
+**Per step:**
+
+```text
+physics.update(circles) → gameState.tick(PHYSICS_STEP_MS) → gameState.checkGameOver()
 ```
-Input → GameState (logic) → Physics (simulation) → Renderer (visuals)
-                ↓
-         React State (UI updates)
-```
+
+**Per frame (after steps):** sync React UI state, then `renderer.render(...)`.
+
+`tick()` advances the game clock, removes escaped circles, updates drop availability, grows merged circles, checks merges, updates particles and runs speed mode auto-drop.
+
+### Fixed Logical World
+
+All game systems use a fixed **400×600 logical world** (`CONTAINER_WIDTH` × `CONTAINER_HEIGHT`). Radii, gravity, danger line and drop zone are in these units, so difficulty is identical on every screen size. Only the renderer knows the displayed size: it sizes the canvas backing store to display width × DPR and applies a uniform scale transform. CSS controls the displayed size (`width: 100%`, `aspect-ratio: 2/3`). Input and bomb taps convert screen coordinates to world coordinates via the canvas bounding rect.
+
+### Game Clock
+
+`GameStateManager` keeps a `clock` (ms of simulated play time) that only advances in `tick()`. The danger timer, particle lifetimes and speed mode auto-drop all use it - **never use `Date.now()` for game timing**, or pausing/background tabs will leak into gameplay.
 
 ### State Management Pattern
 
 The codebase uses a **hybrid state management approach**:
 
-- **React State** (suika-game.tsx): UI-only state (score, status, powerUps, destroyMode, colorPalette)
-- **GameStateManager**: Authoritative game logic independent of React
-- **Physics Engine**: Matter.js maintains physics bodies, synced bidirectionally with game state
+- **React State** (suika-game.tsx): UI-only state (score, status, powerUps, destroyMode, colorPalette, dialogs)
+- **GameStateManager**: Authoritative game logic independent of React (no React imports)
+- **Physics Engine**: Matter.js maintains physics bodies, synced with game state each step
 
 State flows ONE direction per frame: GameState → React (never React → GameState during gameplay).
 
 ### Critical Game Mechanics
 
-**Drop Availability System** (game-state.ts:148-163):
+**Drop Availability:**
 
-- After dropping a circle, `canDrop` flag prevents new drops
-- Only re-enables when the dropped circle clears `DANGER_LINE_Y` (y=80)
+- `dropCircle()` records `droppedCircleId`; no new drop or preview until that circle's top edge clears `DANGER_LINE_Y`
+- If the dropped circle disappears first (merged, destroyed, escaped), dropping is re-enabled
 - Preview circle tracks `lastMouseX` to restore position when drop becomes available
-- This prevents spam-dropping and maintains game balance
 
-**Merge Detection** (game-state.ts:165-211):
+**Merge Detection:**
 
-- Runs every frame during game loop
-- Uses 5% touch tolerance (`distance <= touchDistance * 1.05`)
-- Immediately marks circles as `merged: true` to prevent duplicate processing
-- Creates new circle at midpoint with averaged velocity
-- Sound callback fires **immediately** on merge detection (before physics removal)
+- Runs every step in `tick()`; same-level circles within `MERGE_TOLERANCE` (5%) of touching merge
+- Circles are marked `merged: true` immediately, so each circle merges at most once per step
+- Merged circle spawns at the midpoint with averaged velocity, **at the merging circles' radius**, and grows to full size over `MERGE_GROW_TIME` (120 ms) to avoid violent overlap pushes
+- Sound callback fires immediately on merge detection
 
-**Game Over Logic** (game-state.ts:269-290):
+**Game Over:**
 
-- Starts 2-second timer when any circle top edge crosses `DANGER_LINE_Y`
-- Timer resets if all circles clear the line
-- Only triggers game over if circles remain above line for full timeout
+- Danger timer starts when any non-static circle's top edge is above `DANGER_LINE_Y`
+- Resets if all circles clear the line; game over after `DANGER_LINE_TIMEOUT` (2 s) of game clock time
 
-**Power-Up System**:
+**Power-Ups:**
 
-- Awards 1 bomb every 1000 points (max 1 stored)
+- 1 bomb per `POWERUP_POINTS_THRESHOLD` (1000) points crossed, max `MAX_POWERUPS` (1) stored
+- Milestones crossed while already full are forfeited
 - Destroy mode changes cursor and adds red border to canvas
-- Click/touch handling calculates logical coordinates from canvas rect
+
+**Speed Mode:**
+
+- Auto-drop scheduled on the game clock using `getDropInterval(score)` (2000 ms → 800 ms)
+- Any drop (manual or automatic) restarts the countdown; pausing freezes it
 
 ### Component Initialization Flow
 
-**suika-game.tsx useEffect** (lines 63-138):
+**suika-game.tsx init effect** (runs when the start screen hides and the canvas mounts):
 
-1. Waits 100ms for DOM to settle
-2. Gets actual container dimensions (excluding borders)
-3. Creates all game systems with matching dimensions
-4. Sets up input callbacks
-5. Starts game loop
-6. Auto-starts game in 'playing' status
+1. Creates PhysicsEngine, GameStateManager (with audio callbacks), Renderer and InputHandler
+2. Observes the canvas with a `ResizeObserver` to re-scale the renderer on resize/rotation
+3. Sets up input callbacks
+4. Starts the game loop and starts the game in 'playing' status
 
-**Critical:** Renderer handles canvas DPI scaling internally. Always pass logical dimensions (container size) to all systems.
+Game mode and initial palette are read through `useEffectEvent` so they aren't effect dependencies - changing them must not rebuild a running game. Palette changes go through `renderer.setColors()`.
 
 ### Audio Architecture
 
 Uses **Web Audio API** for low-latency merge sounds:
 
-- AudioContext created with `latencyHint: 'interactive'` (line 36)
-- Audio buffer loaded once and reused (lines 42-48)
-- Each merge creates new BufferSource → GainNode → Destination chain (lines 83-91)
-- Volume: 0.5 gain
+- AudioContext created with `latencyHint: 'interactive'`; browsers start it suspended, so `resumeAudio()` is called from user gestures (Start Game, drops)
+- Audio buffer loaded once and reused; each sound creates a new BufferSource → GainNode → destination chain
+- Merge volume 0.5; explosion uses the same sound at 0.7× playback rate and 0.8 gain
 
 ### Physics System Details
 
-**Matter.js Configuration** (physics.ts:32-47):
+**Matter.js Configuration** (physics.ts, values in game-config.ts):
 
-- Gravity: `{ x: 0, y: 1 }` (downward)
-- Circle properties: restitution 0.1 (low bounce), friction 0.1, air resistance 0.01, density 0.001
-- Container has 3 walls (bottom, left, right) with 50px thickness
-- No top wall (circles can theoretically leave upward, though gravity prevents this)
+- Gravity `{ x: 0, y: 1 }`; circles: restitution 0.1, friction 0.1, air resistance 0.01, density 0.001
+- Solver iterations raised for stable stacks: position 10, velocity 8 (Matter defaults 6/4)
+- Container: bottom + left + right walls (50 px thick); side walls extend a full container height above the top so kicked circles can't escape. No top wall (intentional)
+- Circles that still leave the container are removed by `GameStateManager`
 
-**Body Syncing** (physics.ts:63-103):
+**Body Syncing:**
 
-- Creates new Matter body when circle first appears
-- Syncs static flag changes (for preview circle)
-- Removes bodies when circles deleted (merges, power-ups)
-- Position sync is ONE-WAY: Matter → Circle (except for static circles)
+- New Matter body created when a circle first appears, with the circle's velocity applied
+- Syncs static flag changes and scales the body (`Body.scale`, which also updates mass) when the circle radius changes (merge grow-in)
+- Removes bodies when circles are deleted (merges, power-ups, escapes)
+- Position/velocity sync is Matter → Circle, except static circles (positioned by game state)
 
 ### Canvas Rendering
 
-**Renderer** (lib/renderer.ts):
+- Draws in logical world coordinates; HiDPI handled via the scale transform
+- Color palettes defined in game-config.ts (green, blue, purple, orange, pink, rainbow); adjacent and same-palette levels should stay visually distinct
 
-- Handles Retina/HiDPI via `devicePixelRatio` scaling
-- Canvas dimensions set to logical size × DPI
-- Draw operations use logical coordinates (renderer scales internally)
-- Color palettes defined in game-config.ts (6 options: green, blue, purple, orange, pink, rainbow)
-- Palette changes update renderer via `setColors()` without recreation
+### Leaderboard API
+
+- `lib/db.ts` - shared Neon client; `lib/leaderboard.ts` - shared validation (`isGameMode`, `MAX_SCORE`) and the top-scores query
+- `POST /api/scores` - validates name (trimmed, uppercased, 3 chars), integer score within the INTEGER range, and mode
+- `GET /api/scores/top?mode=` and `GET /api/scores/weekly?mode=` - top 10 all-time / last 7 days
+- No anti-cheat or rate limiting: any plausible score can be posted directly
 
 ### Configuration Constants
 
 All game balance tuning in **lib/game-config.ts**:
 
-- `FRUIT_LEVELS = 11` (levels 0-10)
-- `FRUIT_RADII` array (15px to 135px)
-- `MERGE_POINTS` array (1, 2, 4, 8... 1024 exponential)
-- `DANGER_LINE_Y = 80` (game over threshold)
-- `DANGER_LINE_TIMEOUT = 2000` (2 seconds)
-- `DROP_ZONE_HEIGHT = 80` (where preview circle hovers)
+- `FRUIT_LEVELS = 11` (levels 0-10), `FRUIT_RADII` (15 to 135 world units)
+- `MERGE_POINTS` (1, 2, 4 ... 1024)
+- `DROP_ZONE_HEIGHT = 100`, `DANGER_LINE_Y = DROP_ZONE_HEIGHT`, `DANGER_LINE_TIMEOUT = 2000`
+- Timing: `PHYSICS_STEP_MS`, `STEP_TOLERANCE_MS`, `MAX_FRAME_TIME_MS`, `MERGE_GROW_TIME`
 
 ### Theme System
 
@@ -129,15 +149,14 @@ Uses **next-themes** with system preference detection:
 
 - OKLCH color space in globals.css for perceptual uniformity
 - CSS custom properties for dynamic theming
-- ThemeProvider wraps app in layout.tsx
-- ThemeToggle component in header
+- ThemeProvider wraps app in layout.tsx; ThemeToggle component in header
 
 ## Code Style and Conventions
 
 **File Naming:**
 
-- All component files use **kebab-case**: `suika-game.tsx`, `game-start-screen.tsx`, `theme-toggle.tsx`
-- Library files use **kebab-case**: `game-state.ts`, `game-config.ts`, `input-handler.ts`, `physics.ts`, `renderer.ts`
+- All component and library files use **kebab-case**: `suika-game.tsx`, `game-start-screen.tsx`, `game-state.ts`, `input-handler.ts`
+- Tests live next to the code: `lib/game-state.test.ts`, `lib/physics.test.ts`
 - React component exports use **PascalCase**: `export function GameStartScreen()` or `export default SuikaGame`
 
 ## Common Implementation Patterns
@@ -145,34 +164,37 @@ Uses **next-themes** with system preference detection:
 **Adding New Game Features:**
 
 1. Add configuration to `game-config.ts`
-2. Update `GameStateManager` for logic (pure, no React dependencies)
-3. Sync React state in game loop (suika-game.tsx:167-170)
+2. Update `GameStateManager` for logic (pure, no React dependencies; time via the game clock)
+3. Sync React state in the game loop (after the step loop)
 4. Update UI rendering in suika-game.tsx return statement
+5. Add tests in `lib/game-state.test.ts`
 
 **Modifying Physics:**
 
 - Always update `physics.ts` for simulation changes
-- Ensure bidirectional sync in `syncToPhysics`/`syncFromPhysics`
+- Ensure sync in `syncToPhysics`/`syncFromPhysics`
+- Add or update headless simulations in `lib/physics.test.ts`
 - Test with different circle counts (physics can degrade with 50+ bodies)
 
 **Audio Changes:**
 
-- Load audio files in first useEffect (suika-game.tsx:33-53)
-- Store buffers in refs for reuse
+- Load audio files in the audio useEffect; store buffers in refs for reuse
 - Create new source nodes per playback (buffers are reusable, sources are single-use)
 
 ## Known Constraints
 
-- No TypeScript tests configured (no jest/vitest setup)
 - No top wall in physics container (intentional design choice)
-- Power-up award discrepancy: README says every 100 points, code implements every 1000 points (game-state.ts:239-246)
+- No anti-cheat, rate limiting or name filtering on score submission
 - Canvas touch events use `touchAction: 'none'` normally, switches to `'auto'` in destroy mode
-- Input has 200ms cooldown between drops (input-handler.ts implementation)
+- Input has 200ms cooldown between drops (input-handler.ts)
 
 ## Dependencies
 
-- **Matter.js 0.20.0**: 2D physics engine (core gameplay dependency)
-- **next-themes 0.4.6**: Theme management with system detection
-- **shadcn/ui**: Button, Card, DropdownMenu components (Radix UI primitives)
+- **Next.js 16**, **React 19.2** (uses `useEffectEvent`)
+- **Matter.js 0.20**: 2D physics engine (core gameplay dependency)
+- **@neondatabase/serverless**: Leaderboard database
+- **next-themes**: Theme management with system detection
+- **shadcn/ui**: Button, Dialog, DropdownMenu, Tabs components (Radix UI primitives)
 - **Tailwind CSS 4**: Styling with PostCSS
-- **Lucide React**: Icon library (Bomb icon for power-ups)
+- **Lucide React**: Icon library
+- **Vitest**: Tests
