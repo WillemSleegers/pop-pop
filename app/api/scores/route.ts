@@ -1,11 +1,16 @@
-import { neon } from '@neondatabase/serverless';
 import { NextRequest, NextResponse } from 'next/server';
-
-const sql = neon(process.env.DATABASE_URL!);
+import { sql } from '@/lib/db';
+import { isGameMode, MAX_SCORE } from '@/lib/leaderboard';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (typeof body !== 'object' || body === null) {
+      return NextResponse.json(
+        { error: 'Request body must be a JSON object' },
+        { status: 400 }
+      );
+    }
     const { player_name, score, game_mode = 'relax' } = body;
 
     // Validate input
@@ -16,15 +21,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!score || typeof score !== 'number' || score < 0) {
+    if (typeof score !== 'number' || !Number.isInteger(score) || score <= 0 || score > MAX_SCORE) {
       return NextResponse.json(
-        { error: 'score is required and must be a positive number' },
+        { error: 'score is required and must be a positive integer' },
         { status: 400 }
       );
     }
 
     // Validate game_mode
-    if (game_mode !== 'relax' && game_mode !== 'speed') {
+    if (!isGameMode(game_mode)) {
       return NextResponse.json(
         { error: 'game_mode must be either "relax" or "speed"' },
         { status: 400 }
